@@ -457,7 +457,7 @@ def run_benchmark():
             "Outage RMSE (m)": np.sqrt(np.mean(err_dr[outage_mask] ** 2)),
             "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(((head_dr - true_heading + np.pi) % (2 * np.pi) - np.pi) ** 2)))
         },
-        "Linear KF": {
+        "Constant-Velocity KF": {
             "Overall RMSE (m)": np.sqrt(np.mean(err_kf ** 2)),
             "Max Error (m)": np.max(err_kf),
             "Final Error (m)": err_kf[-1],
@@ -513,13 +513,11 @@ def run_benchmark():
     plt.figure(figsize=(10, 8))
     plt.plot(true_x, true_y, "k-", linewidth=2.5, label="Ground Truth")
     plt.plot(pos_dr[:, 0], pos_dr[:, 1], "r--", alpha=0.7, label="Basic DR")
-    plt.plot(pos_kf[:, 0], pos_kf[:, 1], "c-.", alpha=0.8, label="Linear KF")
+    plt.plot(pos_kf[:, 0], pos_kf[:, 1], "c-.", alpha=0.8, label="Constant-Velocity KF")
     plt.plot(pos_ekf[:, 0], pos_ekf[:, 1], "m--", linewidth=1.8, label="EKF Baseline")
-    plt.plot(pos_ml[:, 0], pos_ml[:, 1], "g-", linewidth=2.0, label="EKF + Gated ML (Proposed)")
-    
+    plt.plot(pos_ml_pred[:, 0], pos_ml_pred[:, 1], "g-", linewidth=2.0, label="EKF + ML Inertial Correction")
     # Highlight outage segment
     plt.plot(true_x[outage_mask], true_y[outage_mask], "y-", linewidth=4.0, alpha=0.6, label="GNSS Outage Region")
-    
     plt.title("SUMARO: 2D Trajectory Comparison (GNSS Blackout 70–90s)", fontsize=13, fontweight="bold")
     plt.xlabel("X Position (m)", fontsize=11)
     plt.ylabel("Y Position (m)", fontsize=11)
@@ -529,30 +527,32 @@ def run_benchmark():
     plt.tight_layout()
     plt.savefig("reports/figures/trajectory_comparison.png", dpi=300)
     plt.close()
-    
+
     # Plot 2: Position Error vs Time
     plt.figure(figsize=(11, 5))
     plt.plot(time, err_dr, "r--", alpha=0.6, label="Basic DR")
-    plt.plot(time, err_kf, "c-.", alpha=0.8, label="Linear KF")
+    plt.plot(time, err_kf, "c-.", alpha=0.8, label="Constant-Velocity KF")
     plt.plot(time, err_ekf, "m-", linewidth=1.8, label="EKF Baseline")
-    plt.plot(time, err_ml, "g-", linewidth=2.2, label="EKF + Gated ML (Proposed)")
+    plt.plot(time, err_ml_pred, "g-", linewidth=2.2, label="EKF + ML Inertial Correction")
     plt.axvspan(70.0, 90.0, color="orange", alpha=0.25, label="GNSS Blackout (70–90s)")
     plt.title("Position Error vs. Time Across Navigation Pipelines", fontsize=13, fontweight="bold")
     plt.xlabel("Time (s)", fontsize=11)
     plt.ylabel("Horizontal Position Error (m)", fontsize=11)
-    plt.ylim(-5, min(max(err_ekf) * 1.15, 300))
+    # Compute global max for y-limit
+    global_max = max(err_dr.max(), err_kf.max(), err_ekf.max(), err_ml_pred.max())
+    plt.ylim(-5, min(global_max * 1.15, 800))
     plt.legend(loc="upper left", fontsize=10)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
     plt.savefig("reports/figures/position_error_vs_time.png", dpi=300)
     plt.close()
-    
+
     # Plot 3: Outage Zoom
     plt.figure(figsize=(10, 5))
     t_out = time[outage_mask]
-    plt.plot(t_out, err_kf[outage_mask], "c-.", linewidth=1.8, label="Linear KF")
+    plt.plot(t_out, err_kf[outage_mask], "c-.", linewidth=1.8, label="Constant-Velocity KF")
     plt.plot(t_out, err_ekf[outage_mask], "m-", linewidth=2.0, label="EKF Baseline")
-    plt.plot(t_out, err_ml[outage_mask], "g-", linewidth=2.5, label="EKF + Gated ML (Proposed)")
+    plt.plot(t_out, err_ml_pred[outage_mask], "g-", linewidth=2.5, label="EKF + ML Inertial Correction")
     plt.title("GNSS Outage Detail: Position Error Growth (70s to 90s)", fontsize=13, fontweight="bold")
     plt.xlabel("Time (s)", fontsize=11)
     plt.ylabel("Position Error (m)", fontsize=11)
