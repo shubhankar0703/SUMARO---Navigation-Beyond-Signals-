@@ -155,3 +155,19 @@ Scale synthetic dataset to ≥50 runs and evaluate whether Bi-LSTM surpasses tab
 Investigate adding explicit accel_bias states [ax_bias, ay_bias] to EKF state vector to
 absorb what ML currently corrects — this may make ML correction redundant for the accel
 component and clarify whether the gyro residual correction is the sole beneficial term.
+
+### EXP-007 — Final Benchmark Cleanup & Interpretation
+**Description:** Corrected benchmark labels, plots, and documentation to accurately
+represent the recommended pipeline.
+**Changes:**
+- Renamed Linear KF → Constant-Velocity KF in all labels and code
+- Added IMU-Aided KF as separate benchmark entry
+- Main plots now use EKF + ML Inertial Correction (pos_ml_pred) as the proposed curve
+- EKF + Gated ML Full Pipeline relegated to ablation
+- Y-axis limit on error plot now shows full Basic DR range
+- Updated GatedEKFMLFusion docstring to reflect experimental status of speed fusion
+- Documented complementary roles of EKF gyro_bias state vs ML gyro residual
+
+**Conclusion:** On the unseen synthetic benchmark trajectory, ML-based inertial residual
+correction improved the EKF baseline. Direct ML speed-measurement fusion did not improve
+the navigation result and is therefore not part of the recommended pipeline.

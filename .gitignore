@@ -1,5 +1,49 @@
-numpy
-pandas
-scipy
-matplotlib
-scikit-learn
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data - do not commit raw real-world datasets
+data/io-vnbd/raw/
+
+# Models (large binary files)
+# Uncomment to exclude from git:
+# models/*.joblib
+# models/*.pt
+# models/*.onnx
+# models/*.tflite
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log

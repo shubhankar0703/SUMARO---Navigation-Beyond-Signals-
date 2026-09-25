@@ -1,0 +1,7 @@
+Method,Overall RMSE (m),Max Error (m),Final Error (m),Outage Max Error (m),Outage RMSE (m),Heading RMSE (deg),Status
+Basic DR,180.62,602.41,602.41,144.09,82.43,15.72,Baseline
+Constant-Velocity KF,36.91,183.38,4.00,167.47,81.05,N/A,Baseline
+IMU-Aided KF,12.30,63.31,2.84,52.83,24.28,N/A,Baseline
+EKF Baseline,10.23,39.26,4.63,37.28,21.47,5.79,Baseline
+EKF + ML Inertial (Pred Only),9.12,34.64,4.65,32.53,18.58,4.53,Proposed (Recommended)
+EKF + Gated ML (Full Pipeline),11.12,43.92,4.66,41.42,23.58,4.32,Ablation (Rejected)

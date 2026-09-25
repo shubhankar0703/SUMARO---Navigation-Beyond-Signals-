@@ -2,15 +2,21 @@
 Gated EKF with ML Inertial & Speed Assistance for SUMARO.
 
 Features:
-1. ML-Assisted Prediction:
-   - Uses ML-predicted forward acceleration residual to eliminate accelerometer bias/tilt drift.
-   - Uses ML-predicted gyro yaw-rate residual to eliminate unobserved heading drift.
-2. Gated ML Speed Update during GNSS Outage:
+1. ML-Assisted Prediction (RECOMMENDED):
+   - Uses ML-predicted forward acceleration residual to reduce accelerometer bias/tilt drift.
+   - Uses ML-predicted gyro yaw-rate residual to reduce unobserved heading drift.
+   - Note: EKF gyro_bias state estimates slowly varying systematic bias.
+     ML gyro residual provides a learned correction for residuals after nominal calibration.
+     These are complementary mechanisms, not redundant.
+2. Gated ML Speed Update during GNSS Outage (EXPERIMENTAL / ABLATION ONLY):
    - Evaluates ML speed pseudo-measurement.
    - Chi-squared Innovation Gating (Mahalanobis distance check).
    - Dynamic adaptive measurement variance R_ml.
    - Sanity checks on physical kinematic bounds (a_max, v_min, v_max).
-   - Rejects implausible predictions, completely preventing filter poisoning.
+   - Gating rejects implausible ML speed updates and reduces the risk of filter
+     poisoning. However, current experiments show that ML speed fusion does not
+     improve navigation accuracy and is therefore disabled in the recommended
+     configuration (use_ml_speed_updates=False).
 3. Joseph-form covariance updates for numerical stability.
 """
 

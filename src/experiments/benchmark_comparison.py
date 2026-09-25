@@ -3,9 +3,9 @@ Comprehensive Benchmark Comparison for SUMARO.
 
 Compares:
 1. Basic Dead Reckoning (Basic DR)
-2. Linear Kalman Filter (KF)
+2. Constant-Velocity KF
 3. Nonlinear Extended Kalman Filter (EKF Baseline)
-4. EKF + Gated ML Assistance (Our Proposed Method)
+4. EKF + ML Inertial Correction (Recommended)
 
 Evaluates on the unseen benchmark test trajectory:
 - 120s run, 10 Hz IMU, 1 Hz GNSS
@@ -212,66 +212,9 @@ def run_imu_aided_kf(data: pd.DataFrame, dt: float = 0.1):
         pos_est[i] = [state[0], state[1]]
     return pos_est
 
+
 # ============================================================
 # 4. BASELINE EKF RUNNER (Unassisted)
-# ============================================================
-
-
-# ============================================================
-# 2. LINEAR KALMAN FILTER RUNNER
-# ============================================================
-def run_linear_kf(data: pd.DataFrame, dt: float = 0.1):
-    N = len(data)
-    pos_est = np.zeros((N, 2))
-    state = np.zeros(4)  # [x, y, vx, vy]
-    
-    # Initialize from first valid GNSS
-    valid_idx = np.where(~np.isnan(data["gnss_x"].values))[0][0]
-    state[0] = data["gnss_x"].iloc[valid_idx]
-    state[1] = data["gnss_y"].iloc[valid_idx]
-    pos_est[0] = [state[0], state[1]]
-    
-    P = np.diag([10.0, 10.0, 10.0, 10.0])
-    Q = np.diag([0.1, 0.1, 0.5, 0.5])
-    R = np.diag([16.0, 16.0])
-    
-    F = np.array([
-        [1.0, 0.0, dt,  0.0],
-        [0.0, 1.0, 0.0, dt],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0]
-    ])
-    
-    H = np.array([
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0]
-    ])
-    
-    I = np.eye(4)
-    
-    for i in range(1, N):
-        # Predict
-        state = F @ state
-        P = F @ P @ F.T + Q
-        
-        # Update
-        gx = data["gnss_x"].iloc[i]
-        gy = data["gnss_y"].iloc[i]
-        if not np.isnan(gx) and not np.isnan(gy):
-            z = np.array([gx, gy])
-            innov = z - H @ state
-            S = H @ P @ H.T + R
-            K = P @ H.T @ np.linalg.inv(S)
-            state = state + K @ innov
-            P = (I - K @ H) @ P @ (I - K @ H).T + K @ R @ K.T
-            
-        pos_est[i] = [state[0], state[1]]
-        
-    return pos_est
-
-
-# ============================================================
-# 3. BASELINE EKF RUNNER (Unassisted)
 # ============================================================
 def run_ekf_baseline(data: pd.DataFrame, dt: float = 0.1):
     N = len(data)
@@ -310,7 +253,7 @@ def run_ekf_baseline(data: pd.DataFrame, dt: float = 0.1):
 
 
 # ============================================================
-# 4. EKF + GATED ML RUNNER (Proposed Solution)
+# 5. EKF + GATED ML RUNNER (Proposed Solution)
 # ============================================================
 def run_ekf_ml_gated(
     data: pd.DataFrame,
@@ -420,9 +363,13 @@ def run_benchmark():
     pos_dr, head_dr = run_basic_dr(df)
     err_dr = np.linalg.norm(pos_dr - np.column_stack([true_x, true_y]), axis=1)
     
-    # 2. Linear KF
-    pos_kf = run_linear_kf(df)
+    # 2. Constant-Velocity KF
+    pos_kf = run_constant_velocity_kf(df)
     err_kf = np.linalg.norm(pos_kf - np.column_stack([true_x, true_y]), axis=1)
+
+    # 2b. IMU-Aided KF
+    pos_imu_kf = run_imu_aided_kf(df)
+    err_imu_kf = np.linalg.norm(pos_imu_kf - np.column_stack([true_x, true_y]), axis=1)
     
     # 3. EKF Baseline
     pos_ekf, head_ekf, gyro_bias_ekf = run_ekf_baseline(df)
@@ -465,6 +412,14 @@ def run_benchmark():
             "Outage RMSE (m)": np.sqrt(np.mean(err_kf[outage_mask] ** 2)),
             "Heading RMSE (deg)": np.nan
         },
+        "IMU-Aided KF": {
+            "Overall RMSE (m)": np.sqrt(np.mean(err_imu_kf ** 2)),
+            "Max Error (m)": np.max(err_imu_kf),
+            "Final Error (m)": err_imu_kf[-1],
+            "Outage Max Error (m)": np.max(err_imu_kf[outage_mask]),
+            "Outage RMSE (m)": np.sqrt(np.mean(err_imu_kf[outage_mask] ** 2)),
+            "Heading RMSE (deg)": np.nan
+        },
         "EKF Baseline": {
             "Overall RMSE (m)": np.sqrt(np.mean(err_ekf ** 2)),
             "Max Error (m)": np.max(err_ekf),
@@ -481,7 +436,7 @@ def run_benchmark():
             "Outage RMSE (m)": np.sqrt(np.mean(err_ml_pred[outage_mask] ** 2)),
             "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(head_err_ml_pred ** 2)))
         },
-        "EKF + Gated ML (Full Pipeline)": {
+        "EKF + Gated ML (Full Pipeline) — Ablation": {
             "Overall RMSE (m)": np.sqrt(np.mean(err_ml ** 2)),
             "Max Error (m)": np.max(err_ml),
             "Final Error (m)": err_ml[-1],
@@ -514,6 +469,7 @@ def run_benchmark():
     plt.plot(true_x, true_y, "k-", linewidth=2.5, label="Ground Truth")
     plt.plot(pos_dr[:, 0], pos_dr[:, 1], "r--", alpha=0.7, label="Basic DR")
     plt.plot(pos_kf[:, 0], pos_kf[:, 1], "c-.", alpha=0.8, label="Constant-Velocity KF")
+    plt.plot(pos_imu_kf[:, 0], pos_imu_kf[:, 1], "b:", linewidth=2.0, label="IMU-Aided KF")
     plt.plot(pos_ekf[:, 0], pos_ekf[:, 1], "m--", linewidth=1.8, label="EKF Baseline")
     plt.plot(pos_ml_pred[:, 0], pos_ml_pred[:, 1], "g-", linewidth=2.0, label="EKF + ML Inertial Correction")
     # Highlight outage segment
@@ -532,6 +488,7 @@ def run_benchmark():
     plt.figure(figsize=(11, 5))
     plt.plot(time, err_dr, "r--", alpha=0.6, label="Basic DR")
     plt.plot(time, err_kf, "c-.", alpha=0.8, label="Constant-Velocity KF")
+    plt.plot(time, err_imu_kf, "b:", linewidth=2.0, label="IMU-Aided KF")
     plt.plot(time, err_ekf, "m-", linewidth=1.8, label="EKF Baseline")
     plt.plot(time, err_ml_pred, "g-", linewidth=2.2, label="EKF + ML Inertial Correction")
     plt.axvspan(70.0, 90.0, color="orange", alpha=0.25, label="GNSS Blackout (70–90s)")
@@ -539,7 +496,7 @@ def run_benchmark():
     plt.xlabel("Time (s)", fontsize=11)
     plt.ylabel("Horizontal Position Error (m)", fontsize=11)
     # Compute global max for y-limit
-    global_max = max(err_dr.max(), err_kf.max(), err_ekf.max(), err_ml_pred.max())
+    global_max = max(err_dr.max(), err_kf.max(), err_imu_kf.max(), err_ekf.max(), err_ml_pred.max())
     plt.ylim(-5, min(global_max * 1.15, 800))
     plt.legend(loc="upper left", fontsize=10)
     plt.grid(True, linestyle="--", alpha=0.6)
@@ -551,6 +508,7 @@ def run_benchmark():
     plt.figure(figsize=(10, 5))
     t_out = time[outage_mask]
     plt.plot(t_out, err_kf[outage_mask], "c-.", linewidth=1.8, label="Constant-Velocity KF")
+    plt.plot(t_out, err_imu_kf[outage_mask], "b:", linewidth=2.0, label="IMU-Aided KF")
     plt.plot(t_out, err_ekf[outage_mask], "m-", linewidth=2.0, label="EKF Baseline")
     plt.plot(t_out, err_ml_pred[outage_mask], "g-", linewidth=2.5, label="EKF + ML Inertial Correction")
     plt.title("GNSS Outage Detail: Position Error Growth (70s to 90s)", fontsize=13, fontweight="bold")
