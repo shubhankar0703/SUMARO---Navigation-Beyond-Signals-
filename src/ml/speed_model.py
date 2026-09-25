@@ -106,10 +106,10 @@ y = data["true_speed"]
 split = int(0.70 * len(data))
 
 X_train = X.iloc[:split]
-X_test = X.iloc[:split]
+X_test = X.iloc[split:]
 
 y_train = y.iloc[:split]
-y_test = y.iloc[:split]
+y_test = y.iloc[split:]
 
 # MODEL 
 

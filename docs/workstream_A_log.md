@@ -78,3 +78,80 @@ gyro), not a model or feature failure. Use raw-bias-before-vs-after comparison, 
 alone, to judge correction models on largely-constant targets. Follow-up not yet run:
 whether the slow time-varying drift component is captured (current features have no
 time-elapsed term).
+
+### EXP-004
+**Description:** Full audit of `speed_model.py`. Determine why direct ML speed fusion
+poisoned the EKF (620 m outage max error vs 180 m baseline).
+**Configuration:** `speed_model.py` (RandomForestRegressor, 70/30 temporal split, raw
+IMU + rolling features, target = `true_speed`).
+**Result:** Three compounding failures identified:
+1. Physical impossibility — accelerometers cannot distinguish 10 m/s from 40 m/s at
+   constant velocity (Galilean invariance). Model learned training mean (~35 m/s) and
+   predicted it during constant-velocity test segments.
+2. OOD test split — train = acceleration phase, test = turn+deceleration phase; completely
+   different dynamics.
+3. Ungated EKF fusion — `ekf_ml_fusion.py` accepted every ML prediction regardless of
+   plausibility; the R_ml was also a scalar (dim 0) causing a matmul crash fixed separately.
+**Conclusion:** Absolute speed from raw IMU is physically indefensible as a regression
+target. Correct targets are stationary residuals: δa_fwd and δω_z. EXP-005 follows.
+
+### EXP-005
+**Description:** Build scientifically defensible ML formulation for inertial correction.
+**Configuration:** Multi-run dataset (10 train / 2 val / 3 test runs, all unique
+trajectories). Targets: δa_fwd = a_veh_x_meas − a_veh_x_true; δω_z = ω_veh_z_meas −
+ω_veh_z_true. Causal W=50 step window features (no lookahead). Models: Gradient Boosting
+baseline and Bi-LSTM sequence model.
+**Result:**
+
+| Model | Target | RMSE (Val) | Notes |
+|---|---|---|---|
+| Gradient Boosting | δa_fwd | 0.183 m/s² | R² = 0.364 |
+| Gradient Boosting | δω_z | 0.00252 rad/s | R² = 0.936 |
+| Gradient Boosting | speed | 7.90 m/s | Too noisy for direct fusion |
+| Bi-LSTM | δa_fwd | 0.242 m/s² | Worse than tabular at this scale |
+| Bi-LSTM | δω_z | 0.00998 rad/s | Worse than tabular at this scale |
+
+Gyro bias correction: raw bias +0.0042 rad/s → after correction −0.0004 rad/s (~10×
+reduction). Accel bias correction: +0.057 m/s² → −0.033 m/s².
+**Conclusion:** GB baseline outperforms Bi-LSTM at this dataset scale. Gyro correction
+is the most reliable component (R² = 0.936). Speed estimator is too noisy (RMSE 7.9 m/s)
+for direct measurement fusion.
+
+### EXP-006
+**Description:** Full 5-way benchmark on unseen test trajectory (run_13, same physics as
+canonical `phone_imu_data.csv`, never seen during training).
+**Configuration:** Basic DR / Linear KF / EKF Baseline / EKF+ML-Inertial / EKF+Gated-ML-Full.
+Safety gating: chi-squared NIS gate (threshold=9.0) + kinematic bounds (v<50, a<8 m/s²).
+**Result:**
+
+| Method | Outage Max ★ | Outage RMSE | Overall RMSE | Heading RMSE |
+|---|---|---|---|---|
+| Basic DR | 150.0 m | 87.5 m | 183.2 m | 15.72° |
+| Linear KF | 167.5 m | 81.1 m | 36.9 m | — |
+| EKF Baseline | 37.3 m | 21.5 m | 10.2 m | 5.79° |
+| **EKF + ML Inertial (Pred Only)** | **32.5 m** | **18.6 m** | **9.1 m** | **4.53°** |
+| EKF + Gated ML (Full) | 41.4 m | 23.6 m | 11.1 m | 4.32° |
+
+★ Primary metric. Gating admitted 108/1057 offered speed updates (10.2%); the admitted
+updates still added marginal noise.
+**Conclusion (Category C):** ML genuinely improves one component. Inertial prediction
+corrections (accel + gyro residuals) reduce outage max error by 12.7% and heading RMSE
+by 21.7% vs EKF Baseline. Speed measurement fusion does not yet help — disable until
+speed RMSE drops below ~2 m/s. Recommended production config: EKF + ML Inertial (Pred
+Only) with gated speed updates disabled.
+
+## Current Status (Updated)
+
+- Multi-run synthetic dataset generated (15 runs, trajectory-level splits)
+- Inertial correction models trained and benchmarked
+- Gated EKF fusion implemented with chi-squared safety gate
+- 5-way benchmark complete on unseen test trajectory
+- Recommended config: `ekf_ml_gated_fusion.py` with `use_ml_speed_updates=False`
+- Next: Add accel_bias states to EKF (absorb correction analytically), scale dataset to ≥50 runs
+
+## Current Task
+
+Scale synthetic dataset to ≥50 runs and evaluate whether Bi-LSTM surpasses tabular GB.
+Investigate adding explicit accel_bias states [ax_bias, ay_bias] to EKF state vector to
+absorb what ML currently corrects — this may make ML correction redundant for the accel
+component and clarify whether the gyro residual correction is the sole beneficial term.

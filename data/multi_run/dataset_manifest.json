@@ -1,0 +1,189 @@
+{
+    "description": "SUMARO Multi-Run Dataset with trajectory-level train/val/test splits",
+    "train_runs": [
+        {
+            "file": "run_01_urban.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 101,
+            "pitch_deg": 28.0,
+            "gyro_bias": 0.0045,
+            "accel_bias": [
+                0.04,
+                0.01,
+                -0.02
+            ]
+        },
+        {
+            "file": "run_02_highway.csv",
+            "motion": "s_curve_highway",
+            "seed": 102,
+            "pitch_deg": 32.0,
+            "gyro_bias": 0.0055,
+            "accel_bias": [
+                0.06,
+                0.03,
+                -0.04
+            ]
+        },
+        {
+            "file": "run_03_random.csv",
+            "motion": "randomized_general",
+            "seed": 103,
+            "pitch_deg": 30.0,
+            "gyro_bias": 0.005,
+            "accel_bias": [
+                0.05,
+                0.02,
+                -0.03
+            ]
+        },
+        {
+            "file": "run_04_urban.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 104,
+            "pitch_deg": 25.0,
+            "gyro_bias": 0.0035,
+            "accel_bias": [
+                0.03,
+                -0.01,
+                -0.02
+            ]
+        },
+        {
+            "file": "run_05_highway.csv",
+            "motion": "s_curve_highway",
+            "seed": 105,
+            "pitch_deg": 35.0,
+            "gyro_bias": 0.0065,
+            "accel_bias": [
+                0.07,
+                0.04,
+                -0.05
+            ]
+        },
+        {
+            "file": "run_06_random.csv",
+            "motion": "randomized_general",
+            "seed": 106,
+            "pitch_deg": 27.0,
+            "gyro_bias": 0.004,
+            "accel_bias": [
+                0.05,
+                0.01,
+                -0.03
+            ]
+        },
+        {
+            "file": "run_07_urban.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 107,
+            "pitch_deg": 33.0,
+            "gyro_bias": 0.006,
+            "accel_bias": [
+                0.06,
+                -0.02,
+                -0.04
+            ]
+        },
+        {
+            "file": "run_08_highway.csv",
+            "motion": "s_curve_highway",
+            "seed": 108,
+            "pitch_deg": 29.0,
+            "gyro_bias": 0.0048,
+            "accel_bias": [
+                0.04,
+                0.02,
+                -0.02
+            ]
+        },
+        {
+            "file": "run_09_random.csv",
+            "motion": "randomized_general",
+            "seed": 109,
+            "pitch_deg": 31.0,
+            "gyro_bias": 0.0052,
+            "accel_bias": [
+                0.05,
+                0.03,
+                -0.03
+            ]
+        },
+        {
+            "file": "run_10_urban.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 110,
+            "pitch_deg": 30.0,
+            "gyro_bias": 0.005,
+            "accel_bias": [
+                0.05,
+                0.02,
+                -0.03
+            ]
+        }
+    ],
+    "val_runs": [
+        {
+            "file": "run_11_val_urban.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 201,
+            "pitch_deg": 29.0,
+            "gyro_bias": 0.0048,
+            "accel_bias": [
+                0.045,
+                0.025,
+                -0.035
+            ]
+        },
+        {
+            "file": "run_12_val_highway.csv",
+            "motion": "s_curve_highway",
+            "seed": 202,
+            "pitch_deg": 31.0,
+            "gyro_bias": 0.0053,
+            "accel_bias": [
+                0.055,
+                0.015,
+                -0.025
+            ]
+        }
+    ],
+    "test_runs": [
+        {
+            "file": "run_13_benchmark_test.csv",
+            "motion": "benchmark",
+            "seed": 42,
+            "pitch_deg": 30.0,
+            "gyro_bias": 0.005,
+            "accel_bias": [
+                0.05,
+                0.02,
+                -0.03
+            ]
+        },
+        {
+            "file": "run_14_urban_test.csv",
+            "motion": "urban_stop_and_go",
+            "seed": 301,
+            "pitch_deg": 32.5,
+            "gyro_bias": 0.0058,
+            "accel_bias": [
+                0.065,
+                0.015,
+                -0.035
+            ]
+        },
+        {
+            "file": "run_15_highway_test.csv",
+            "motion": "s_curve_highway",
+            "seed": 302,
+            "pitch_deg": 27.5,
+            "gyro_bias": 0.0042,
+            "accel_bias": [
+                0.035,
+                0.025,
+                -0.025
+            ]
+        }
+    ]
+}
