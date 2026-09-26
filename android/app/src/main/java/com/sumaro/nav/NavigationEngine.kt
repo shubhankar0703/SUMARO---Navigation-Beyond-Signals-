@@ -43,7 +43,7 @@ class NavigationEngine(private val context: Context) {
 
         gnssManager.onGNSSStatusChange = { hasFix ->
             currentMode = if (hasFix) NavMode.GNSS_AIDED else NavMode.DR_ONLY
-            Log.d("NavEngine", "Mode switched to: \$currentMode")
+            Log.d("NavEngine", "Mode switched to: $currentMode")
         }
     }
 
