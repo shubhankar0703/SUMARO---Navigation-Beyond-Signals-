@@ -1,0 +1,42 @@
+{
+  "dataset": "IO-VNBD",
+  "random_seed": 42,
+  "feature_window_steps": 50,
+  "phone_pitch_rad": 0.0,
+  "train_samples": 153863,
+  "val_samples": 41437,
+  "num_features": 63,
+  "training_time_total_s": 44.16971778869629,
+  "accel_residual_model": {
+    "model_type": "HistGradientBoostingRegressor",
+    "hyperparameters": {
+      "max_iter": 150,
+      "max_depth": 6,
+      "min_samples_leaf": 20,
+      "learning_rate": 0.1
+    },
+    "train_mae_mps2": 0.43457951463671546,
+    "train_rmse_mps2": 0.6197575900095915,
+    "train_r2": 0.8559882238144428,
+    "val_mae_mps2": 0.5083738935766018,
+    "val_rmse_mps2": 0.7636351827920594,
+    "val_r2": 0.7557087998398784,
+    "inference_latency_us": 5.289554595947266
+  },
+  "gyro_residual_model": {
+    "model_type": "HistGradientBoostingRegressor",
+    "hyperparameters": {
+      "max_iter": 150,
+      "max_depth": 6,
+      "min_samples_leaf": 20,
+      "learning_rate": 0.1
+    },
+    "train_mae_radps": 0.044516298154404825,
+    "train_rmse_radps": 0.09406672879547782,
+    "train_r2": 0.7219771066401788,
+    "val_mae_radps": 0.06933824856674203,
+    "val_rmse_radps": 0.1377268070409541,
+    "val_r2": 0.33285717673973236,
+    "inference_latency_us": 6.057977676391602
+  }
+}

@@ -1,0 +1,11 @@
+Metric,Config A (Segment 1800-2200s),Config B (Full Drive 0-5174.5s),Discrepancy Mechanism
+Filter Initialization Time,t = 1800.0 s,t = 0.0 s,200s vs 2000s convergence prior to blackout
+Samples Before Blackout,"2,000 samples","20,000 samples",10x longer pre-blackout observation
+GNSS Updates in Outage [2000-2060s],0,0,VERIFIED: Exactly 0 GNSS updates enter EKF
+EKF Outage Max Error (m),7214.05 m,322.64 m,7214.05 m vs 322.64 m reproduced exactly
+EKF Outage RMSE (m),3212.82 m,136.44 m,3212.82 m vs 136.44 m reproduced exactly
+EKF Overall RMSE (m),1246.07 m,45.62 m,1246.07 m vs 45.62 m reproduced exactly
+EKF Final Error (m),38.33 m,5.56 m,Evaluated at t=2200s vs t=5174.5s
+RBPF Outage Max Error (m),6937.70 m,6960.70 m,6937.70 m vs 6960.70 m (consistent)
+RBPF Outage RMSE (m),3118.55 m,3141.52 m,3118.55 m vs 3141.52 m (consistent)
+RBPF GNSS Updates in Outage,0,0,VERIFIED: Exactly 0 GNSS updates enter RBPF

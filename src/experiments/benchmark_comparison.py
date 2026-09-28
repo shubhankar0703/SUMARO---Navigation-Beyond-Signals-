@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from joblib import load
 
 from src.fusion.ekf_ml_gated_fusion import GatedEKFMLFusion
+from src.fusion.rbpf_vehicle import RBPFVehicleFusion
 from src.ml.inertial_correction_models import extract_causal_features_for_run, HAS_TORCH
 
 
@@ -334,6 +335,76 @@ def run_ekf_ml_gated(
 
 
 # ============================================================
+# 5. RBPF RUNNER (Rao-Blackwellized Particle Filter)
+# ============================================================
+def run_rbpf(
+    data: pd.DataFrame,
+    accel_model=None,
+    gyro_model=None,
+    dt: float = 0.1,
+    window_steps: int = 50,
+    use_ml: bool = False,
+    n_particles: int = 100,
+    random_state: int = 42,
+):
+    N = len(data)
+    pos_est = np.zeros((N, 2))
+    heading_est = np.zeros(N)
+    
+    if use_ml and accel_model is not None and gyro_model is not None:
+        X_tab, _, _, _, _ = extract_causal_features_for_run(
+            data, window_steps=window_steps, dt=dt
+        )
+        pred_delta_a = accel_model.predict(X_tab)
+        pred_delta_w = gyro_model.predict(X_tab)
+    else:
+        pred_delta_a = None
+        pred_delta_w = None
+        
+    rbpf = RBPFVehicleFusion(
+        dt=dt,
+        n_particles=n_particles,
+        use_ml_prediction_corrections=use_ml,
+        random_state=random_state,
+    )
+    
+    first_idx = np.where(~np.isnan(data["gnss_x"].values))[0][0]
+    rbpf.initialize_state(
+        data["gnss_x"].iloc[first_idx],
+        data["gnss_y"].iloc[first_idx],
+        init_heading=0.0
+    )
+    pos_est[0] = [rbpf.state[0], rbpf.state[1]]
+    heading_est[0] = rbpf.state[4]
+    
+    offset = window_steps - 1
+    for i in range(1, N):
+        ap = data[["accel_x", "accel_y", "accel_z"]].iloc[i].values
+        gp = data[["gyro_x", "gyro_y", "gyro_z"]].iloc[i].values
+        gnss = (data["gnss_x"].iloc[i], data["gnss_y"].iloc[i])
+        
+        if use_ml and i >= offset:
+            feat_idx = i - offset
+            da = pred_delta_a[feat_idx]
+            dw = pred_delta_w[feat_idx]
+        else:
+            da = 0.0
+            dw = 0.0
+            
+        rbpf.step(
+            accel_phone_raw=ap,
+            gyro_phone_raw=gp,
+            gnss_pos=gnss,
+            ml_delta_accel=da,
+            ml_delta_gyro=dw,
+        )
+        pos_est[i] = [rbpf.state[0], rbpf.state[1]]
+        heading_est[i] = rbpf.state[4]
+        
+    return pos_est, heading_est
+
+
+# ============================================================
 # MAIN BENCHMARK EVALUATOR
 # ============================================================
 def run_benchmark():
@@ -387,6 +458,20 @@ def run_benchmark():
         df, accel_model, gyro_model, speed_model_dict, use_ml_speed_updates=True
     )
     err_ml = np.linalg.norm(pos_ml - np.column_stack([true_x, true_y]), axis=1)
+
+    # 6. RBPF Baseline (N=100)
+    pos_rbpf_base, head_rbpf_base = run_rbpf(
+        df, use_ml=False, n_particles=100, random_state=42
+    )
+    err_rbpf_base = np.linalg.norm(pos_rbpf_base - np.column_stack([true_x, true_y]), axis=1)
+    head_err_rbpf_base = np.abs((head_rbpf_base - true_heading + np.pi) % (2 * np.pi) - np.pi)
+
+    # 7. RBPF + ML Inertial (Proposed, N=100)
+    pos_rbpf_ml, head_rbpf_ml = run_rbpf(
+        df, accel_model, gyro_model, use_ml=True, n_particles=100, random_state=42
+    )
+    err_rbpf_ml = np.linalg.norm(pos_rbpf_ml - np.column_stack([true_x, true_y]), axis=1)
+    head_err_rbpf_ml = np.abs((head_rbpf_ml - true_heading + np.pi) % (2 * np.pi) - np.pi)
     
     # Heading errors (wrapped to [-pi, pi])
     head_err_ekf = np.abs((head_ekf - true_heading + np.pi) % (2 * np.pi) - np.pi)
@@ -428,6 +513,14 @@ def run_benchmark():
             "Outage RMSE (m)": np.sqrt(np.mean(err_ekf[outage_mask] ** 2)),
             "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(head_err_ekf ** 2)))
         },
+        "RBPF Baseline": {
+            "Overall RMSE (m)": np.sqrt(np.mean(err_rbpf_base ** 2)),
+            "Max Error (m)": np.max(err_rbpf_base),
+            "Final Error (m)": err_rbpf_base[-1],
+            "Outage Max Error (m)": np.max(err_rbpf_base[outage_mask]),
+            "Outage RMSE (m)": np.sqrt(np.mean(err_rbpf_base[outage_mask] ** 2)),
+            "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(head_err_rbpf_base ** 2)))
+        },
         "EKF + ML Inertial (Pred Only)": {
             "Overall RMSE (m)": np.sqrt(np.mean(err_ml_pred ** 2)),
             "Max Error (m)": np.max(err_ml_pred),
@@ -435,6 +528,14 @@ def run_benchmark():
             "Outage Max Error (m)": np.max(err_ml_pred[outage_mask]),
             "Outage RMSE (m)": np.sqrt(np.mean(err_ml_pred[outage_mask] ** 2)),
             "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(head_err_ml_pred ** 2)))
+        },
+        "RBPF + ML Inertial (Proposed)": {
+            "Overall RMSE (m)": np.sqrt(np.mean(err_rbpf_ml ** 2)),
+            "Max Error (m)": np.max(err_rbpf_ml),
+            "Final Error (m)": err_rbpf_ml[-1],
+            "Outage Max Error (m)": np.max(err_rbpf_ml[outage_mask]),
+            "Outage RMSE (m)": np.sqrt(np.mean(err_rbpf_ml[outage_mask] ** 2)),
+            "Heading RMSE (deg)": np.degrees(np.sqrt(np.mean(head_err_rbpf_ml ** 2)))
         },
         "EKF + Gated ML (Full Pipeline) — Ablation": {
             "Overall RMSE (m)": np.sqrt(np.mean(err_ml ** 2)),
@@ -461,6 +562,15 @@ def run_benchmark():
     # Save CSV
     df_metrics.to_csv("reports/benchmark_metrics.csv")
     
+    # Save focused RBPF vs EKF comparison table
+    df_rbpf_comp = pd.DataFrame({
+        "EKF Baseline": metrics["EKF Baseline"],
+        "RBPF Baseline": metrics["RBPF Baseline"],
+        "EKF + ML Inertial (Pred Only)": metrics["EKF + ML Inertial (Pred Only)"],
+        "RBPF + ML Inertial (Proposed)": metrics["RBPF + ML Inertial (Proposed)"],
+    }).T
+    df_rbpf_comp.to_csv("reports/rbpf_vs_ekf_comparison.csv")
+    
     # ========================================================
     # PLOTS GENERATION
     # ========================================================
@@ -471,7 +581,8 @@ def run_benchmark():
     plt.plot(pos_kf[:, 0], pos_kf[:, 1], "c-.", alpha=0.8, label="Constant-Velocity KF")
     plt.plot(pos_imu_kf[:, 0], pos_imu_kf[:, 1], "b:", linewidth=2.0, label="IMU-Aided KF")
     plt.plot(pos_ekf[:, 0], pos_ekf[:, 1], "m--", linewidth=1.8, label="EKF Baseline")
-    plt.plot(pos_ml_pred[:, 0], pos_ml_pred[:, 1], "g-", linewidth=2.0, label="EKF + ML Inertial Correction")
+    plt.plot(pos_ml_pred[:, 0], pos_ml_pred[:, 1], "g--", linewidth=1.8, label="EKF + ML Inertial")
+    plt.plot(pos_rbpf_ml[:, 0], pos_rbpf_ml[:, 1], "darkgreen", linewidth=2.4, label="RBPF + ML Inertial (Proposed)")
     # Highlight outage segment
     plt.plot(true_x[outage_mask], true_y[outage_mask], "y-", linewidth=4.0, alpha=0.6, label="GNSS Outage Region")
     plt.title("SUMARO: 2D Trajectory Comparison (GNSS Blackout 70–90s)", fontsize=13, fontweight="bold")
@@ -489,14 +600,15 @@ def run_benchmark():
     plt.plot(time, err_dr, "r--", alpha=0.6, label="Basic DR")
     plt.plot(time, err_kf, "c-.", alpha=0.8, label="Constant-Velocity KF")
     plt.plot(time, err_imu_kf, "b:", linewidth=2.0, label="IMU-Aided KF")
-    plt.plot(time, err_ekf, "m-", linewidth=1.8, label="EKF Baseline")
-    plt.plot(time, err_ml_pred, "g-", linewidth=2.2, label="EKF + ML Inertial Correction")
+    plt.plot(time, err_ekf, "m--", linewidth=1.8, label="EKF Baseline")
+    plt.plot(time, err_ml_pred, "g--", linewidth=1.8, label="EKF + ML Inertial")
+    plt.plot(time, err_rbpf_ml, "darkgreen", linewidth=2.4, label="RBPF + ML Inertial (Proposed)")
     plt.axvspan(70.0, 90.0, color="orange", alpha=0.25, label="GNSS Blackout (70–90s)")
     plt.title("Position Error vs. Time Across Navigation Pipelines", fontsize=13, fontweight="bold")
     plt.xlabel("Time (s)", fontsize=11)
     plt.ylabel("Horizontal Position Error (m)", fontsize=11)
     # Compute global max for y-limit
-    global_max = max(err_dr.max(), err_kf.max(), err_imu_kf.max(), err_ekf.max(), err_ml_pred.max())
+    global_max = max(err_dr.max(), err_kf.max(), err_imu_kf.max(), err_ekf.max(), err_ml_pred.max(), err_rbpf_ml.max())
     plt.ylim(-5, min(global_max * 1.15, 800))
     plt.legend(loc="upper left", fontsize=10)
     plt.grid(True, linestyle="--", alpha=0.6)
@@ -507,10 +619,12 @@ def run_benchmark():
     # Plot 3: Outage Zoom
     plt.figure(figsize=(10, 5))
     t_out = time[outage_mask]
-    plt.plot(t_out, err_kf[outage_mask], "c-.", linewidth=1.8, label="Constant-Velocity KF")
-    plt.plot(t_out, err_imu_kf[outage_mask], "b:", linewidth=2.0, label="IMU-Aided KF")
-    plt.plot(t_out, err_ekf[outage_mask], "m-", linewidth=2.0, label="EKF Baseline")
-    plt.plot(t_out, err_ml_pred[outage_mask], "g-", linewidth=2.5, label="EKF + ML Inertial Correction")
+    plt.plot(t_out, err_kf[outage_mask], "c-.", linewidth=1.6, label="Constant-Velocity KF")
+    plt.plot(t_out, err_imu_kf[outage_mask], "b:", linewidth=1.8, label="IMU-Aided KF")
+    plt.plot(t_out, err_ekf[outage_mask], "m--", linewidth=1.8, label="EKF Baseline")
+    plt.plot(t_out, err_rbpf_base[outage_mask], "darkorange", linestyle=":", linewidth=2.0, label="RBPF Baseline")
+    plt.plot(t_out, err_ml_pred[outage_mask], "g--", linewidth=2.0, label="EKF + ML Inertial")
+    plt.plot(t_out, err_rbpf_ml[outage_mask], "darkgreen", linewidth=2.5, label="RBPF + ML Inertial (Proposed)")
     plt.title("GNSS Outage Detail: Position Error Growth (70s to 90s)", fontsize=13, fontweight="bold")
     plt.xlabel("Time (s)", fontsize=11)
     plt.ylabel("Position Error (m)", fontsize=11)

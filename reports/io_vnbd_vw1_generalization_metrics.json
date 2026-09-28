@@ -1,0 +1,54 @@
+[
+  {
+    "Method": "EKF Baseline",
+    "Outage Max Error (m)": 9512.443189072004,
+    "Outage RMSE (m)": 4320.287017588567,
+    "Outage MAE (m)": 3263.4206446993608,
+    "Overall RMSE (m)": 740.20226193139,
+    "Overall MAE (m)": 101.23279627976127,
+    "Max Error (m)": 9512.443189072004,
+    "Final Error (m)": 5.234779648860858,
+    "Runtime (s)": 27.76,
+    "Throughput (Hz)": 737.7,
+    "ML Latency (us)": 0.0
+  },
+  {
+    "Method": "RBPF Baseline (N=100)",
+    "Outage Max Error (m)": 2404.971919666635,
+    "Outage RMSE (m)": 1149.824660970998,
+    "Outage MAE (m)": 876.0391044683593,
+    "Overall RMSE (m)": 197.01956068082407,
+    "Overall MAE (m)": 28.20865354456816,
+    "Max Error (m)": 2404.971919666635,
+    "Final Error (m)": 2.422338317495843,
+    "Runtime (s)": 33.02,
+    "Throughput (Hz)": 620.2,
+    "ML Latency (us)": 0.0
+  },
+  {
+    "Method": "EKF + ML Inertial",
+    "Outage Max Error (m)": 9363.031504650147,
+    "Outage RMSE (m)": 4248.0848765690625,
+    "Outage MAE (m)": 3207.2329754056827,
+    "Overall RMSE (m)": 727.8233696248044,
+    "Overall MAE (m)": 98.33475601380253,
+    "Max Error (m)": 9363.031504650147,
+    "Final Error (m)": 4.3498226422558925,
+    "Runtime (s)": 24.07,
+    "Throughput (Hz)": 850.7,
+    "ML Latency (us)": 18.4
+  },
+  {
+    "Method": "RBPF + ML Inertial (Proposed)",
+    "Outage Max Error (m)": 805.9662147810387,
+    "Outage RMSE (m)": 376.2672292084436,
+    "Outage MAE (m)": 297.1279151912689,
+    "Overall RMSE (m)": 64.53583620107428,
+    "Overall MAE (m)": 11.200804331981471,
+    "Max Error (m)": 805.9662147810387,
+    "Final Error (m)": 1.4031620110026126,
+    "Runtime (s)": 27.69,
+    "Throughput (Hz)": 739.5,
+    "ML Latency (us)": 16.1
+  }
+]

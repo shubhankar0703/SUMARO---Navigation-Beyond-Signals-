@@ -60,10 +60,13 @@ def process_io_vnbd(s_file_path, v_file_path, output_path, outage_start_s=None, 
     out_df['accel_z'] = s_df[find_col(s_df, 'ACCELEROMETER Z')]
     
     # Gyroscope mapping
-    # Smartphone axes: Roll -> x, Pitch -> y, Yaw -> z
-    out_df['gyro_x'] = s_df['GYROSCOPE Roll (rad/s)']
-    out_df['gyro_y'] = s_df['GYROSCOPE Pitch (rad/s)']
-    out_df['gyro_z'] = s_df['GYROSCOPE Yaw (rad/s)']
+    # Smartphone axes: Roll/Z -> x, Pitch/Y -> y, Yaw/X -> z
+    roll_col = 'GYROSCOPE Roll (rad/s)' if 'GYROSCOPE Roll (rad/s)' in s_df.columns else find_col(s_df, 'GYROSCOPE Z')
+    pitch_col = 'GYROSCOPE Pitch (rad/s)' if 'GYROSCOPE Pitch (rad/s)' in s_df.columns else find_col(s_df, 'GYROSCOPE Y')
+    yaw_col = 'GYROSCOPE Yaw (rad/s)' if 'GYROSCOPE Yaw (rad/s)' in s_df.columns else find_col(s_df, 'GYROSCOPE X')
+    out_df['gyro_x'] = s_df[roll_col]
+    out_df['gyro_y'] = s_df[pitch_col]
+    out_df['gyro_z'] = s_df[yaw_col]
     
     # Smartphone GNSS ENU
     out_df['gnss_x'] = gnss_e

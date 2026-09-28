@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SUMARO — Intelligent GNSS-Denied Navigation Platform</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Top Navigation & Header Bar -->
+  <header class="top-nav">
+    <div class="brand">
+      <div class="logo-badge">SUMARO</div>
+      <div class="brand-text">
+        <span class="system-title">Engineering & Research Portal</span>
+        <span class="system-sub">RBPF + Causal ML Inertial Engine • Research Prototype &nbsp;|&nbsp; <a href="/" style="color:#00ffcc; text-decoration:none; font-weight:600;">← User MVP</a></span>
+      </div>
+    </div>
+
+    <!-- Mode Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-btn active" data-tab="tab-dashboard">Main Dashboard</button>
+      <button class="nav-btn" data-tab="tab-blackout">GNSS Blackout Demo</button>
+      <button class="nav-btn" data-tab="tab-four-way">Four-Way Comparison</button>
+      <button class="nav-btn" data-tab="tab-analytics">Canonical Analytics</button>
+      <button class="nav-btn" data-tab="tab-ml">ML Residual Pipeline</button>
+      <button class="nav-btn" data-tab="tab-experiment">Experiment Runner</button>
+      <button class="nav-btn" data-tab="tab-health">System Health</button>
+    </nav>
+
+    <!-- Top Right Status Indicators -->
+    <div class="header-status">
+      <div class="status-pill" id="pill-gnss">
+        <span class="status-dot"></span>
+        <span class="status-text">GNSS: STANDBY</span>
+      </div>
+      <div class="status-pill" id="pill-engine">
+        <span class="status-dot green"></span>
+        <span class="status-text">ENGINE: READY</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Global Dataset Selection & Replay Bar -->
+  <section class="playback-bar">
+    <div class="dataset-controls">
+      <label for="select-dataset" class="ctrl-label">Session:</label>
+      <select id="select-dataset" class="custom-select">
+        <option value="S1">S1 (Canonical Test A - Urban)</option>
+        <option value="Vw1">Vw1 (Canonical Test B - Highway)</option>
+      </select>
+      <button id="btn-load-dataset" class="btn btn-secondary">Load Session</button>
+    </div>
+
+    <div class="transport-controls">
+      <button id="btn-play-pause" class="btn btn-primary">▶ Play</button>
+      <button id="btn-step" class="btn btn-icon" title="Step 1 Frame (0.1s)">⏯ Step</button>
+      <button id="btn-stop" class="btn btn-icon" title="Stop and Reset">⏹ Reset</button>
+      
+      <div class="time-display">
+        <span id="time-current">0.0 s</span> / <span id="time-total">0.0 s</span>
+      </div>
+
+      <div class="timeline-container">
+        <input type="range" id="timeline-slider" min="0" max="100" value="0" class="timeline-bar">
+      </div>
+
+      <div class="speed-selector">
+        <span class="ctrl-label">Speed:</span>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="10">10x</button>
+        <button class="speed-btn" data-speed="0">MAX</button>
+      </div>
+    </div>
+
+    <div class="algo-quick-switch">
+      <label for="select-algo" class="ctrl-label">Filter Mode:</label>
+      <select id="select-algo" class="custom-select">
+        <option value="RBPF+ML">RBPF + Real ML (Proposed)</option>
+        <option value="RBPF">RBPF Baseline (100 Particles)</option>
+        <option value="EKF+ML">EKF + Real ML</option>
+        <option value="EKF">EKF Baseline</option>
+        <option value="FOUR_WAY">Synchronized 4-Way Mode</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Main Viewports Container -->
+  <main class="main-content">
+    
+    <!-- TAB 1: MAIN NAVIGATION DASHBOARD -->
+    <div id="tab-dashboard" class="tab-pane active">
+      <div class="dashboard-grid">
+        <!-- Interactive Map Canvas Card -->
+        <div class="card map-card">
+          <div class="card-header">
+            <h3>Vehicle Track Map (Local ENU Coordinates)</h3>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-color ref"></span> Vehicle Ground Truth (CAN)</span>
+              <span class="legend-item"><span class="legend-color gnss"></span> Smartphone GNSS Fixes</span>
+              <span class="legend-item"><span class="legend-color active-est"></span> Active Filter Estimate</span>
+              <span class="legend-item"><span class="legend-color blackout"></span> GNSS Blackout Zone</span>
+            </div>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="map-canvas"></canvas>
+            <div class="map-hud-overlay">
+              <div class="hud-field"><span class="hud-lbl">East:</span> <span id="hud-east">0.00 m</span></div>
+              <div class="hud-field"><span class="hud-lbl">North:</span> <span id="hud-north">0.00 m</span></div>
+              <div class="hud-field"><span class="hud-lbl">WGS84:</span> <span id="hud-wgs84">0.000000, 0.000000</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Flight Deck Telemetry Cards -->
+        <div class="telemetry-panel">
+          <div class="card metric-card primary-stat">
+            <div class="card-header"><h4>Active Tracking State</h4></div>
+            <div class="card-body">
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Velocity</div>
+                  <div class="stat-val" id="stat-speed">0.00 <span class="stat-unit">m/s</span></div>
+                  <div class="stat-sub" id="stat-speed-kmh">0.0 km/h</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Heading</div>
+                  <div class="stat-val" id="stat-heading">0.0<span class="stat-unit">°</span></div>
+                  <div class="stat-sub" id="stat-heading-rad">0.000 rad</div>
+                </div>
+              </div>
+
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Position Error (vs CAN)</div>
+                  <div class="stat-val highlight" id="stat-error">0.00 <span class="stat-unit">m</span></div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">1-σ Uncertainty</div>
+                  <div class="stat-val" id="stat-uncertainty">±4.00 <span class="stat-unit">m</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card metric-card">
+            <div class="card-header"><h4>RBPF Particle Health</h4></div>
+            <div class="card-body">
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Particle Count (Np)</div>
+                  <div class="stat-val" id="stat-particles">100</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Effective Samples (ESS)</div>
+                  <div class="stat-val" id="stat-ess">100.0</div>
+                </div>
+              </div>
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Resampling Active</div>
+                  <div class="stat-val" id="stat-resampled">NO</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Step Latency</div>
+                  <div class="stat-val" id="stat-latency">0 <span class="stat-unit">μs</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card metric-card">
+            <div class="card-header"><h4>Causal ML Corrections</h4></div>
+            <div class="card-body">
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Acc Residual (δa)</div>
+                  <div class="stat-val" id="stat-ml-accel">0.000 <span class="stat-unit">m/s²</span></div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Yaw Residual (δω)</div>
+                  <div class="stat-val" id="stat-ml-gyro">0.0000 <span class="stat-unit">rad/s</span></div>
+                </div>
+              </div>
+              <div class="stat-footnote">Model: HistGradientBoosting (63-dim causal window)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: GNSS BLACKOUT DEMONSTRATION -->
+    <div id="tab-blackout" class="tab-pane">
+      <div class="blackout-view">
+        <div class="card blackout-hero-card">
+          <div class="card-header">
+            <h3>GNSS Blackout Control & Divergence Simulator</h3>
+            <span class="badge" id="blackout-phase-badge">GNSS TRACKING NORMAL</span>
+          </div>
+          <div class="card-body">
+            <div class="blackout-form-row">
+              <div class="form-group">
+                <label>Blackout Window:</label>
+                <div class="time-range-inputs">
+                  <span>From:</span>
+                  <input type="number" id="inp-outage-start" value="2000.0" step="10" class="num-input">
+                  <span>To:</span>
+                  <input type="number" id="inp-outage-end" value="2060.0" step="10" class="num-input">
+                  <span>s (Duration: 60s)</span>
+                </div>
+              </div>
+              <button id="btn-apply-blackout" class="btn btn-secondary">Apply Outage Parameters</button>
+              <button id="btn-jump-blackout" class="btn btn-primary">Jump to Outage (t - 10s)</button>
+            </div>
+
+            <!-- Outage Progression Banner -->
+            <div class="outage-timeline-progress">
+              <div class="outage-phase-step completed" id="phase-before">
+                <div class="phase-circle">1</div>
+                <div class="phase-title">Normal GNSS Tracking</div>
+                <div class="phase-desc">1 Hz GNSS fixes converge velocity & bias</div>
+              </div>
+              <div class="outage-phase-step" id="phase-in">
+                <div class="phase-circle">2</div>
+                <div class="phase-title">GNSS Blackout Injected</div>
+                <div class="phase-desc">Strictly zero GNSS; pure RBPF / ML dead reckoning</div>
+              </div>
+              <div class="outage-phase-step" id="phase-after">
+                <div class="phase-circle">3</div>
+                <div class="phase-title">GNSS Restored</div>
+                <div class="phase-desc">Fixes reacquired; Kalman innovation collapse</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card map-card">
+            <div class="card-header"><h4>Blackout Focus Map</h4></div>
+            <div class="canvas-wrapper">
+              <canvas id="blackout-map-canvas"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h4>Divergence & Error Recovery Metrics</h4></div>
+            <div class="card-body">
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Current Position Error</div>
+                  <div class="stat-val highlight" id="bo-curr-error">0.00 m</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Peak Outage Error</div>
+                  <div class="stat-val" id="bo-peak-error">0.00 m</div>
+                </div>
+              </div>
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Position Uncertainty (1-σ)</div>
+                  <div class="stat-val" id="bo-uncertainty">±4.00 m</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">GNSS Measurements Accepted</div>
+                  <div class="stat-val" id="bo-gnss-count">0</div>
+                </div>
+              </div>
+              <div class="info-note">
+                <strong>Verification Guarantee:</strong> Instrumentation proves that exactly 0 GNSS updates enter the estimator during the outage window.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: FOUR-WAY SYNCHRONIZED COMPARISON -->
+    <div id="tab-four-way" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>Synchronous Four-Way Algorithm Evaluation</h3>
+          <div class="map-legend">
+            <span class="legend-item"><span class="legend-color ref"></span> Vehicle Ground Truth (CAN)</span>
+            <span class="legend-item"><span class="legend-color ekf"></span> EKF Baseline</span>
+            <span class="legend-item"><span class="legend-color rbpf"></span> RBPF Baseline</span>
+            <span class="legend-item"><span class="legend-color ekf-ml"></span> EKF + Real ML</span>
+            <span class="legend-item"><span class="legend-color rbpf-ml"></span> RBPF + Real ML (Proposed)</span>
+          </div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="canvas-wrapper" style="height: 480px;">
+            <canvas id="four-way-map-canvas"></canvas>
+          </div>
+          <div class="four-way-metrics-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Speed (m/s)</th>
+                  <th>Heading</th>
+                  <th>Error vs CAN (m)</th>
+                  <th>1-σ (m)</th>
+                </tr>
+              </thead>
+              <tbody id="four-way-live-tbody">
+                <tr><td colspan="5">Loading live comparison telemetry...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: CANONICAL BENCHMARK ANALYTICS -->
+    <div id="tab-analytics" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>Official Frozen Research Benchmark Results</h3>
+          <span class="badge blue">CANONICAL RESEARCH ARTIFACTS</span>
+        </div>
+        <div class="card-body">
+          <p class="section-desc">
+            These metrics represent the validated scientific results from the frozen research layer.
+            Per protocol, results are strictly separated across <strong>Unseen-Session Generalization (S1)</strong> and 
+            <strong>Unseen-Driver / Scenario Generalization (Vw1)</strong>.
+          </p>
+
+          <h4 class="table-subheading">Canonical Benchmark A: Session S1 (Urban Stop-and-Go, 60s Outage at t=2000s)</h4>
+          <table class="data-table" id="table-canonical-s1">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Outage Max Error (m)</th>
+                <th>Outage RMSE (m)</th>
+                <th>Overall RMSE (m)</th>
+                <th>Final Error (m)</th>
+                <th>Throughput (Hz)</th>
+                <th>Behavioral Characteristic</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="7">Loading canonical S1 metrics...</td></tr>
+            </tbody>
+          </table>
+
+          <h4 class="table-subheading" style="margin-top: 30px;">Canonical Benchmark B: Session Vw1 (Highway Cruising, 60s Outage at t=800s)</h4>
+          <table class="data-table" id="table-canonical-vw1">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Outage Max Error (m)</th>
+                <th>Outage RMSE (m)</th>
+                <th>Overall RMSE (m)</th>
+                <th>Final Error (m)</th>
+                <th>Throughput (Hz)</th>
+                <th>Behavioral Characteristic</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="7">Loading canonical Vw1 metrics...</td></tr>
+            </tbody>
+          </table>
+
+          <div class="info-note warning-note" style="margin-top: 25px;">
+            <strong>Scenario-Dependence Finding:</strong> Real-world ML residual corrections reduced outage maximum error by 
+            <strong>66.5%</strong> on highway cruising (Vw1: $2,404\text{ m} \rightarrow 805\text{ m}$), but degraded error during active urban cornering 
+            (S1: $6,960\text{ m} \rightarrow 8,121\text{ m}$). SUMARO strictly presents this empirical reality rather than claiming universal superiority.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: ML RESIDUAL PIPELINE -->
+    <div id="tab-ml" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>ML Inertial Residual Correction Architecture</h3>
+          <span class="badge green">REAL IO-VNBD TRAINED MODELS</span>
+        </div>
+        <div class="card-body">
+          <div class="pipeline-diagram">
+            <div class="pipeline-step">
+              <div class="p-title">Raw Smartphone IMU</div>
+              <div class="p-sub">Accel (3D) + Gyro (3D) at 10 Hz</div>
+            </div>
+            <div class="p-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="p-title">Causal Feature Buffer</div>
+              <div class="p-sub">W=50 steps (5.0 s), zero lookahead</div>
+            </div>
+            <div class="p-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="p-title">63-Dim Feature Vector</div>
+              <div class="p-sub">Instant, Short (1s), Long (5s), Jerk</div>
+            </div>
+            <div class="p-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="p-title">Dual HistGB Regressors</div>
+              <div class="p-sub">Predicts δa_fwd and δω_yaw</div>
+            </div>
+            <div class="p-arrow">➔</div>
+            <div class="pipeline-step highlight">
+              <div class="p-title">RBPF Propagation</div>
+              <div class="p-sub">Residuals subtracted at each step</div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid" style="margin-top: 20px;">
+            <div class="card inner-card">
+              <h4>Feature Vector Structure (63 Causal Features)</h4>
+              <ul class="feature-list" id="ml-feature-list">
+                <li>Loading feature breakdown...</li>
+              </ul>
+            </div>
+            <div class="card inner-card">
+              <h4>Trained Model Artifact Details</h4>
+              <div class="telemetry-row">
+                <div class="stat-box">
+                  <div class="stat-label">Forward Accel Model</div>
+                  <div class="stat-val-sm" id="ml-model-accel">HistGradientBoostingRegressor</div>
+                  <div class="stat-sub">Artifact: io_vnbd_accel_correction.joblib</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Yaw Rate Model</div>
+                  <div class="stat-val-sm" id="ml-model-gyro">HistGradientBoostingRegressor</div>
+                  <div class="stat-sub">Artifact: io_vnbd_gyro_correction.joblib</div>
+                </div>
+              </div>
+              <div class="telemetry-row" style="margin-top: 15px;">
+                <div class="stat-box">
+                  <div class="stat-label">Training Diversity</div>
+                  <div class="stat-val-sm">674,844 samples (5 drives)</div>
+                  <div class="stat-sub">Train sessions: S2, S4, M, Vta10, Vtb1</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Inference Latency</div>
+                  <div class="stat-val-sm">~18 μs / sample</div>
+                  <div class="stat-sub">>50,000 Hz throughput capacity</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: EXPERIMENT RUNNER -->
+    <div id="tab-experiment" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>Custom Batch Experiment Runner</h3>
+          <span class="badge purple">NON-BLOCKING BACKGROUND ENGINE</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Select Session:</label>
+              <select id="exp-dataset" class="custom-select">
+                <option value="S1">Session S1 (Urban)</option>
+                <option value="Vw1">Session Vw1 (Highway)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Particle Count (Np):</label>
+              <input type="number" id="exp-particles" value="100" min="10" max="500" class="num-input">
+            </div>
+            <div class="form-group">
+              <label>Outage Window (s):</label>
+              <div class="inline-inputs">
+                <input type="number" id="exp-bo-start" value="2000" class="num-input">
+                <span>to</span>
+                <input type="number" id="exp-bo-end" value="2060" class="num-input">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Algorithms to Run:</label>
+              <div class="checkbox-row">
+                <label><input type="checkbox" id="chk-ekf" checked> EKF</label>
+                <label><input type="checkbox" id="chk-rbpf" checked> RBPF</label>
+                <label><input type="checkbox" id="chk-ekf-ml" checked> EKF+ML</label>
+                <label><input type="checkbox" id="chk-rbpf-ml" checked> RBPF+ML</label>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <button id="btn-run-experiment" class="btn btn-primary">Start Batch Experiment</button>
+            <span id="exp-status-text" class="status-msg"></span>
+          </div>
+
+          <div id="exp-results-card" class="card inner-card" style="margin-top: 25px; display: none;">
+            <div class="card-header">
+              <h4>Experiment Output Metrics</h4>
+              <button id="btn-export-json" class="btn btn-secondary">Export JSON</button>
+            </div>
+            <table class="data-table" id="table-exp-results">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Outage Max (m)</th>
+                  <th>Outage RMSE (m)</th>
+                  <th>Overall RMSE (m)</th>
+                  <th>Final Error (m)</th>
+                  <th>Runtime (s)</th>
+                  <th>Throughput (Hz)</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-exp-results"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: SYSTEM HEALTH -->
+    <div id="tab-health" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>System Health & Subsystem Diagnostics</h3>
+          <span class="badge green">ALL SUBSYSTEMS OPERATIONAL</span>
+        </div>
+        <div class="card-body">
+          <div class="health-grid">
+            <div class="health-box">
+              <div class="health-title">Navigation Core</div>
+              <div class="health-val green">OPERATIONAL</div>
+              <div class="health-sub">6-State EKF & 6-State RBPF Engines Active</div>
+            </div>
+            <div class="health-box">
+              <div class="health-title">Trained ML Artifacts</div>
+              <div class="health-val green" id="health-ml-status">LOADED</div>
+              <div class="health-sub">io_vnbd_accel_correction.joblib & gyro loaded</div>
+            </div>
+            <div class="health-box">
+              <div class="health-title">Dataset Service</div>
+              <div class="health-val green" id="health-datasets-count">9 SESSIONS</div>
+              <div class="health-sub">S1, Vw1, M, S2, S4, Vta10, Vtb1, Vfa01, Y1 ready</div>
+            </div>
+            <div class="health-box">
+              <div class="health-title">API & Playback Loop</div>
+              <div class="health-val green">THREAD HEALTHY</div>
+              <div class="health-sub">FastAPI async server & worker thread synchronized</div>
+            </div>
+          </div>
+
+          <h4 style="margin-top: 30px;">Active Subsystem State</h4>
+          <div class="code-box">
+            <pre id="health-raw-json">Checking server health...</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

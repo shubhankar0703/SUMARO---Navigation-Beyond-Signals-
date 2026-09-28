@@ -24,6 +24,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath("."))
 
 from src.fusion.ekf_ml_gated_fusion import GatedEKFMLFusion
+from src.fusion.rbpf_vehicle import RBPFVehicleFusion
 from src.ml.inertial_correction_models import extract_causal_features_for_run
 
 
@@ -32,6 +33,8 @@ def run_demo(
     outage_start: float = 70.0,
     outage_end: float = 90.0,
     use_ml: bool = True,
+    filter_type: str = "rbpf",
+    n_particles: int = 100,
     log_interval: int = 10,
     dt: float = 0.1,
     window_steps: int = 50,
@@ -52,6 +55,7 @@ def run_demo(
     print("  SUMARO Navigation Demo")
     print("  Smartphone-Based GNSS-Denied Dead Reckoning")
     print("=" * 70)
+    print(f"  Filter Engine: {filter_type.upper()}" + (f" (N={n_particles})" if filter_type.lower() == "rbpf" else ""))
     print(f"  Data:         {data_file}")
     print(f"  ML Corrections: {'ENABLED' if use_ml else 'DISABLED'}")
     print(f"  GNSS Outage:  {outage_start}s to {outage_end}s")
@@ -99,16 +103,24 @@ def run_demo(
             print("  Running without ML corrections.")
             use_ml = False
     
-    # Initialize EKF
-    ekf = GatedEKFMLFusion(
-        dt=dt,
-        use_ml_prediction_corrections=use_ml,
-        use_ml_speed_updates=False,  # Speed fusion disabled (not recommended)
-    )
+    # Initialize Filter Engine (RBPF or EKF)
+    if filter_type.lower() == "rbpf":
+        nav_filter = RBPFVehicleFusion(
+            dt=dt,
+            n_particles=n_particles,
+            use_ml_prediction_corrections=use_ml,
+            random_state=42,
+        )
+    else:
+        nav_filter = GatedEKFMLFusion(
+            dt=dt,
+            use_ml_prediction_corrections=use_ml,
+            use_ml_speed_updates=False,  # Speed fusion disabled (not recommended)
+        )
     
     # Find first valid GNSS position
     first_valid = np.where(~np.isnan(df["gnss_x"].values))[0][0]
-    ekf.initialize_state(
+    nav_filter.initialize_state(
         df["gnss_x"].iloc[first_valid],
         df["gnss_y"].iloc[first_valid],
         init_heading=0.0,
@@ -121,8 +133,8 @@ def run_demo(
     uncertainties = np.zeros(N)
     errors = np.zeros(N)
     
-    positions[0] = [ekf.state[0], ekf.state[1]]
-    headings[0] = ekf.state[4]
+    positions[0] = [nav_filter.state[0], nav_filter.state[1]]
+    headings[0] = nav_filter.state[4]
     
     # Navigation mode state machine
     current_mode = "GNSS_AIDED"
@@ -174,8 +186,8 @@ def run_demo(
         accel_raw = df[["accel_x", "accel_y", "accel_z"]].iloc[i].values
         gyro_raw = df[["gyro_x", "gyro_y", "gyro_z"]].iloc[i].values
         
-        # Run EKF step
-        ekf.step(
+        # Run filter step
+        nav_filter.step(
             accel_phone_raw=accel_raw,
             gyro_phone_raw=gyro_raw,
             gnss_pos=gnss_pos,
@@ -184,27 +196,27 @@ def run_demo(
         )
         
         # Record state
-        positions[i] = [ekf.state[0], ekf.state[1]]
-        headings[i] = ekf.state[4]
+        positions[i] = [nav_filter.state[0], nav_filter.state[1]]
+        headings[i] = nav_filter.state[4]
         modes.append(current_mode)
         
         # Position uncertainty (trace of position covariance)
-        pos_unc = np.sqrt(ekf.P[0, 0] + ekf.P[1, 1])
+        pos_unc = np.sqrt(nav_filter.P[0, 0] + nav_filter.P[1, 1])
         uncertainties[i] = pos_unc
         
         # Position error vs ground truth
         err = np.sqrt(
-            (ekf.state[0] - true_x[i]) ** 2
-            + (ekf.state[1] - true_y[i]) ** 2
+            (nav_filter.state[0] - true_x[i]) ** 2
+            + (nav_filter.state[1] - true_y[i]) ** 2
         )
         errors[i] = err
         
         # Log output
         if i % log_interval == 0 or event:
-            hdg_deg = np.degrees(ekf.state[4]) % 360
+            hdg_deg = np.degrees(nav_filter.state[4]) % 360
             print(
                 f"  {t:6.1f}  {current_mode:>12s}  "
-                f"{ekf.state[0]:8.1f}  {ekf.state[1]:8.1f}  "
+                f"{nav_filter.state[0]:8.1f}  {nav_filter.state[1]:8.1f}  "
                 f"{hdg_deg:7.1f}  {err:7.2f}  {pos_unc:7.2f}  {event}"
             )
     
@@ -227,14 +239,14 @@ def run_demo(
     
     print(f"\n  Mode Transitions:         {len(mode_transitions)}")
     for t, fm, to, ev in mode_transitions:
-        print(f"    t={t:6.1f}s: {fm} → {to}")
+        print(f"    t={t:6.1f}s: {fm} -> {to}")
     
-    print(f"\n  Final EKF State:")
-    print(f"    Position:   ({ekf.state[0]:.2f}, {ekf.state[1]:.2f}) m")
-    print(f"    Velocity:   ({ekf.state[2]:.2f}, {ekf.state[3]:.2f}) m/s")
-    print(f"    Heading:    {np.degrees(ekf.state[4]):.2f}°")
-    print(f"    Gyro Bias:  {ekf.state[5]:.6f} rad/s")
-    print(f"    Pos Uncert: {uncertainties[-1]:.2f} m (1σ)")
+    print(f"\n  Final Filter State ({filter_type.upper()}):")
+    print(f"    Position:   ({nav_filter.state[0]:.2f}, {nav_filter.state[1]:.2f}) m")
+    print(f"    Velocity:   ({nav_filter.state[2]:.2f}, {nav_filter.state[3]:.2f}) m/s")
+    print(f"    Heading:    {np.degrees(nav_filter.state[4]):.2f} deg")
+    print(f"    Gyro Bias:  {nav_filter.state[5]:.6f} rad/s")
+    print(f"    Pos Uncert: {uncertainties[-1]:.2f} m (1-sigma)")
     
     print("\n" + "=" * 70)
     
@@ -282,6 +294,18 @@ def main():
         help="Disable ML inertial corrections",
     )
     parser.add_argument(
+        "--filter",
+        choices=["rbpf", "ekf"],
+        default="rbpf",
+        help="Filter algorithm to use (rbpf or ekf, default: rbpf)",
+    )
+    parser.add_argument(
+        "--particles",
+        type=int,
+        default=100,
+        help="Number of particles for RBPF (default: 100)",
+    )
+    parser.add_argument(
         "--log-interval",
         type=int,
         default=10,
@@ -295,6 +319,8 @@ def main():
         outage_start=args.outage_start,
         outage_end=args.outage_end,
         use_ml=not args.no_ml,
+        filter_type=args.filter,
+        n_particles=args.particles,
         log_interval=args.log_interval,
     )
 

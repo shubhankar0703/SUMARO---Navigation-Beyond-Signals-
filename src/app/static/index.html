@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SUMARO — Navigation that keeps working when GPS doesn't</title>
+  <link rel="stylesheet" href="/static/user.css">
+</head>
+<body class="theme-dark">
+
+  <!-- ====================================================================
+       1. APPLICATION ENTRY SCREEN (HERO / LANDING VIEW)
+       ==================================================================== -->
+  <section id="screen-landing" class="landing-hero active">
+    <div class="landing-container">
+      <div class="landing-brand">
+        <div class="brand-badge">SUMARO</div>
+        <h1 class="landing-headline">Navigation that keeps working when GPS doesn't.</h1>
+        <p class="landing-subtext">
+          SUMARO combines satellite positioning with smartphone motion sensors and intelligent navigation algorithms to maintain your position when GPS becomes unreliable or completely unavailable.
+        </p>
+      </div>
+
+      <div class="landing-actions">
+        <button id="btn-hero-demo" class="hero-btn primary-btn">
+          <span class="btn-icon">🎬</span>
+          <span class="btn-text">
+            <strong>TRY DEMO</strong>
+            <small>Experience a real-world GPS outage in 10 seconds</small>
+          </span>
+        </button>
+
+        <button id="btn-hero-live" class="hero-btn secondary-btn">
+          <span class="btn-icon">📍</span>
+          <span class="btn-text">
+            <strong>START LIVE NAVIGATION</strong>
+            <small>Use device location & motion</small>
+          </span>
+        </button>
+      </div>
+
+      <div class="landing-demo-pills">
+        <span class="pill-label">Instant One-Click Scenarios:</span>
+        <button class="pill-btn" id="btn-quick-urban">🏙️ Urban City Outage</button>
+        <button class="pill-btn" id="btn-quick-highway">🛣️ High-Speed Highway Outage</button>
+      </div>
+
+      <div class="landing-footer">
+        <a href="/engineering" class="research-link">
+          <span class="link-icon">🔬</span>
+          <span>Access Engineering & Research Portal</span>
+          <span class="link-arrow">→</span>
+        </a>
+        <div class="landing-disclaimer">
+          Tested on real-world vehicle sensors • No simulated or fabricated performance
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       2. MAIN NAVIGATION VIEW (MAP + FLIGHT HUD)
+       ==================================================================== -->
+  <section id="screen-nav" class="nav-screen">
+    
+    <!-- Top Floating Status Header -->
+    <header class="nav-top-bar">
+      <div class="nav-left">
+        <button id="btn-nav-back" class="nav-icon-btn" title="Back to Home">‹ Home</button>
+        <div class="app-mini-brand">SUMARO</div>
+        <div class="mode-badge" id="badge-nav-mode">DEMO MODE</div>
+      </div>
+
+      <!-- Plain Language GPS State Indicator -->
+      <div class="gps-state-banner state-connected" id="banner-gps-state">
+        <span class="state-dot"></span>
+        <div class="state-text-block">
+          <span class="state-title" id="txt-gps-state-title">GPS CONNECTED</span>
+          <span class="state-desc" id="txt-gps-state-desc">SUMARO is using satellite GPS and onboard motion sensors.</span>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <button id="btn-open-how" class="nav-text-btn" title="How it works">How It Works</button>
+        <button id="btn-open-settings" class="nav-icon-btn" title="Settings">⚙️</button>
+        <a href="/engineering" class="nav-btn-research" title="Open Engineering Portal">🔬 Research</a>
+      </div>
+    </header>
+
+    <!-- Full-Screen Interactive 2D Map Canvas -->
+    <div class="nav-map-container">
+      <canvas id="user-map-canvas"></canvas>
+
+      <!-- Map Overlays: Speedometer & Heading Pill -->
+      <div class="map-hud-cluster">
+        <div class="hud-card speed-card">
+          <div class="speed-num" id="val-speed">0</div>
+          <div class="speed-unit" id="unit-speed">km/h</div>
+        </div>
+
+        <div class="hud-card heading-card">
+          <div class="hud-label">HEADING</div>
+          <div class="hud-val" id="val-heading">0° N</div>
+        </div>
+
+        <div class="hud-card confidence-card">
+          <div class="hud-label">CONFIDENCE</div>
+          <div class="hud-val highlight" id="val-confidence">HIGH</div>
+        </div>
+
+        <div class="hud-card outage-timer-card" id="card-outage-timer" style="display: none;">
+          <div class="hud-label">WITHOUT GPS</div>
+          <div class="hud-val red" id="val-outage-time">00:00</div>
+        </div>
+      </div>
+
+      <!-- Centering / Zoom Controls -->
+      <div class="map-view-controls">
+        <button id="btn-recenter" class="view-btn" title="Re-center on vehicle">🎯</button>
+        <button id="btn-zoom-in" class="view-btn" title="Zoom in">+</button>
+        <button id="btn-zoom-out" class="view-btn" title="Zoom out">−</button>
+      </div>
+
+      <!-- Compass Indicator -->
+      <div class="compass-widget" id="compass-widget">
+        <div class="compass-needle" id="compass-needle">▲</div>
+        <div class="compass-label">N</div>
+      </div>
+    </div>
+
+    <!-- Bottom Transport & Scenario Controller (For Demo Mode) -->
+    <footer class="nav-bottom-bar" id="demo-controller-bar">
+      <div class="demo-info">
+        <span class="demo-tag" id="demo-tag-label">URBAN SCENARIO</span>
+        <span class="demo-desc" id="demo-tag-desc">Real city drive with sharp turns & canyon blackout</span>
+      </div>
+
+      <div class="demo-actions">
+        <button id="btn-demo-play-pause" class="demo-btn primary">⏸ Pause</button>
+        <button id="btn-demo-restart" class="demo-btn">↻ Restart</button>
+        
+        <div class="speed-pill-group">
+          <button class="sp-btn" data-spd="1">1×</button>
+          <button class="sp-btn active" data-spd="2">2×</button>
+          <button class="sp-btn" data-spd="5">5×</button>
+        </div>
+
+        <div class="demo-progress-wrap">
+          <span class="prog-time" id="demo-time-lbl">00:00</span>
+          <div class="demo-progress-bar">
+            <div class="demo-progress-fill" id="demo-progress-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-switch-pills">
+        <button class="scene-switch-btn active" id="btn-switch-urban">Urban Demo</button>
+        <button class="scene-switch-btn" id="btn-switch-highway">Highway Demo</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ====================================================================
+       3. DEMO COMPLETION MODAL / SUMMARY SHEET
+       ==================================================================== -->
+  <div id="modal-demo-summary" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="success-badge">✓ DEMO COMPLETE</div>
+        <h2>SUMARO maintained navigation without GPS</h2>
+      </div>
+
+      <div class="modal-body">
+        <p class="summary-text" id="summary-scenario-text">
+          During the 60-second simulated GPS blackout, SUMARO tracked the vehicle using onboard motion sensors and intelligent estimation models.
+        </p>
+
+        <div class="summary-stats-grid">
+          <div class="summary-stat-box">
+            <div class="stat-lbl">GPS Outage Time</div>
+            <div class="stat-num" id="sum-outage-dur">60.0 s</div>
+            <div class="stat-note">Zero satellite updates</div>
+          </div>
+
+          <div class="summary-stat-box">
+            <div class="stat-lbl">Navigation Status</div>
+            <div class="stat-num green">Maintained</div>
+            <div class="stat-note">Continuous position track</div>
+          </div>
+
+          <div class="summary-stat-box">
+            <div class="stat-lbl">GPS Recovery</div>
+            <div class="stat-num blue">Seamless</div>
+            <div class="stat-note">Re-converged on fix reacquisition</div>
+          </div>
+        </div>
+
+        <div class="honesty-box">
+          <strong>Honesty Guarantee:</strong> Position data is derived from genuine vehicle CAN-bus and smartphone IMU recordings from the IO-VNBD dataset. No synthetic errors or artificial metrics.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-sum-replay" class="modal-btn secondary">↻ Try Again</button>
+        <button id="btn-sum-how" class="modal-btn secondary">💡 How It Works</button>
+        <a href="/engineering" class="modal-btn primary">🔬 View Scientific Benchmarks</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       4. "HOW SUMARO WORKS" EXPLAINER MODAL
+       ==================================================================== -->
+  <div id="modal-how-it-works" class="modal-backdrop">
+    <div class="modal-card wide">
+      <div class="modal-header">
+        <h2>How SUMARO Works</h2>
+        <button id="btn-close-how" class="close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="section-lead">
+          Traditional navigation apps stop updating or guess wildly when GPS signals are lost in tunnels or urban canyons. SUMARO bridges the blackout gap using four coordinated steps:
+        </p>
+
+        <div class="how-grid">
+          <div class="how-card">
+            <div class="how-num">1</div>
+            <h3>Satellite Fixes</h3>
+            <p>Under open sky, GPS fixes calibrate motion sensors and establish an accurate velocity and direction baseline.</p>
+          </div>
+
+          <div class="how-card">
+            <div class="how-num">2</div>
+            <h3>Motion Sensing</h3>
+            <p>Smartphone accelerometers and gyroscopes sample vehicle motion 50 times per second, detecting every turn and bump.</p>
+          </div>
+
+          <div class="how-card">
+            <div class="how-num">3</div>
+            <h3>Intelligent Estimator</h3>
+            <p>Our mathematical filtering engine strips away sensor noise and gravity leakage to accurately integrate physical displacement.</p>
+          </div>
+
+          <div class="how-card highlight">
+            <div class="how-num">4</div>
+            <h3>Seamless Recovery</h3>
+            <p>When you exit the tunnel, GPS seamlessly blends back in, correcting any accumulated sensor drift without jumping.</p>
+          </div>
+        </div>
+
+        <div class="tech-cta-box">
+          <div>
+            <strong>Are you a researcher or hackathon judge?</strong>
+            <p>Inspect our 6-state Rao-Blackwellized Particle Filter (RBPF) equations, causal ML residual models, and canonical IO-VNBD benchmark logs.</p>
+          </div>
+          <a href="/engineering" class="hero-btn secondary-btn small">Open Engineering Portal →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       5. SETTINGS DRAWER
+       ==================================================================== -->
+  <div id="drawer-settings" class="drawer-backdrop">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <h3>User Preferences</h3>
+        <button id="btn-close-settings" class="close-btn">&times;</button>
+      </div>
+
+      <div class="drawer-body">
+        <div class="setting-group">
+          <label class="setting-lbl">Speed Units</label>
+          <div class="pill-toggle">
+            <button class="pt-btn active" id="btn-unit-kmh">Kilometers/hr (km/h)</button>
+            <button class="pt-btn" id="btn-unit-mph">Miles/hr (mph)</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-lbl">Map Theme</label>
+          <div class="pill-toggle">
+            <button class="pt-btn active" id="btn-theme-dark">Night Navigation</button>
+            <button class="pt-btn" id="btn-theme-light">Daylight</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-lbl">Live Device Sensors</label>
+          <div class="toggle-row">
+            <span>Use Browser GPS</span>
+            <input type="checkbox" id="chk-use-browser-gps">
+          </div>
+          <small class="setting-hint">
+            Standard web browsers allow 1 Hz location but restrict high-frequency raw IMU access. Full dead reckoning on hardware uses the Android prototype.
+          </small>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-lbl">Platform Information</label>
+          <div class="info-table-sm">
+            <div><span>Research Engine:</span> <strong>FROZEN (RBPF+ML)</strong></div>
+            <div><span>Dataset Source:</span> <strong>IO-VNBD Benchmark</strong></div>
+            <div><span>Backend API:</span> <strong>FastAPI v2.0.0</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/user.js"></script>
+</body>
+</html>

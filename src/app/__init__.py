@@ -1,0 +1,3 @@
+"""
+SUMARO Application Package Initialization.
+"""

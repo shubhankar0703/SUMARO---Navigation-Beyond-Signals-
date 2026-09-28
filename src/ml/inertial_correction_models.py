@@ -42,31 +42,38 @@ R_PHONE_TO_VEH = R_VEH_TO_PHONE.T
 def extract_causal_features_for_run(
     df: pd.DataFrame,
     window_steps: int = 50,
-    dt: float = 0.1
+    dt: float = 0.1,
+    phone_pitch_rad: float = None,
+    include_seq: bool = True
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Extracts strictly causal features and targets from a single trajectory run.
     
     Returns:
     - X_tabular: (N, num_features) flattened summary moments over past window
-    - X_seq: (N, window_steps, num_raw_features) sequence tensor over past window
+    - X_seq: (N, window_steps, num_raw_features) sequence tensor over past window (or None)
     - y_accel_res: (N,) delta_a_x = a_veh_x_meas - a_veh_x_true
     - y_gyro_res: (N,) delta_omega_z = omega_veh_z_meas - omega_veh_z_true
     - y_speed: (N,) true_speed
     """
     N = len(df)
     
-    # 1. Transform phone measurements to vehicle frame using nominal mounting
+    # 1. Transform phone measurements to vehicle frame using mounting
+    if phone_pitch_rad is not None:
+        R_p2v = rotation_y(phone_pitch_rad).T
+    else:
+        R_p2v = R_PHONE_TO_VEH
+        
     accel_phone = df[["accel_x", "accel_y", "accel_z"]].values
     gyro_phone = df[["gyro_x", "gyro_y", "gyro_z"]].values
     
-    # Specific force vehicle = R_phone_to_veh @ accel_phone
-    f_veh = (R_PHONE_TO_VEH @ accel_phone.T).T
+    # Specific force vehicle = R_p2v @ accel_phone
+    f_veh = (R_p2v @ accel_phone.T).T
     # Linear acceleration vehicle = f_veh + [0, 0, -G]
     a_veh = f_veh + np.array([0.0, 0.0, -G])
     
-    # Gyro vehicle = R_phone_to_veh @ gyro_phone
-    omega_veh = (R_PHONE_TO_VEH @ gyro_phone.T).T
+    # Gyro vehicle = R_p2v @ gyro_phone
+    omega_veh = (R_p2v @ gyro_phone.T).T
     
     a_fwd = a_veh[:, 0]
     a_lat = a_veh[:, 1]
@@ -103,14 +110,18 @@ def extract_causal_features_for_run(
     valid_indices = np.arange(window_steps - 1, N)
     num_samples = len(valid_indices)
     
-    X_seq = np.zeros((num_samples, window_steps, num_channels), dtype=np.float32)
+    if include_seq:
+        X_seq = np.zeros((num_samples, window_steps, num_channels), dtype=np.float32)
+    else:
+        X_seq = None
     X_tabular_list = []
     
     for idx_out, k in enumerate(valid_indices):
         # Slice [k - window_steps + 1 : k + 1] -> length window_steps
         # Strictly past up to current step k!
         w = raw_channels[k - window_steps + 1 : k + 1]
-        X_seq[idx_out] = w
+        if include_seq:
+            X_seq[idx_out] = w
         
         # Summary moments for tabular model:
         # - Current values at step k (12 features)

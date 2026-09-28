@@ -1,0 +1,98 @@
+{
+  "dataset": "IO-VNBD (Inertial and Odometry Vehicle Navigation Benchmark Dataset)",
+  "train_set": [
+    {
+      "session_id": "S2",
+      "driver": "Driver A",
+      "scenario": "Suburban / Urban Road",
+      "path": "data/io-vnbd/splits\\train\\S2_sumaro_format.csv",
+      "rows": 93876,
+      "duration_s": 9387.5,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    },
+    {
+      "session_id": "S4",
+      "driver": "Driver A",
+      "scenario": "Suburban / Urban Road",
+      "path": "data/io-vnbd/splits\\train\\S4_sumaro_format.csv",
+      "rows": 94600,
+      "duration_s": 9459.9,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    },
+    {
+      "session_id": "M",
+      "driver": "Driver B",
+      "scenario": "Mixed Long-Distance",
+      "path": "data/io-vnbd/splits\\train\\M_sumaro_format.csv",
+      "rows": 105974,
+      "duration_s": 10597.3,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    },
+    {
+      "session_id": "Vta10",
+      "driver": "Driver E",
+      "scenario": "Town Route A Stop-and-Go",
+      "path": "data/io-vnbd/splits\\train\\Vta10_sumaro_format.csv",
+      "rows": 1502,
+      "duration_s": 150.1,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    },
+    {
+      "session_id": "Vtb1",
+      "driver": "Driver E",
+      "scenario": "Town Route B City Grid",
+      "path": "data/io-vnbd/splits\\train\\Vtb1_sumaro_format.csv",
+      "rows": 32459,
+      "duration_s": 3245.8,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    }
+  ],
+  "val_set": [
+    {
+      "session_id": "Y1",
+      "driver": "Driver D",
+      "scenario": "City Arterial",
+      "path": "data/io-vnbd/splits\\val\\Y1_sumaro_format.csv",
+      "rows": 70285,
+      "duration_s": 7028.400000000001,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    },
+    {
+      "session_id": "Vfa01",
+      "driver": "Driver E",
+      "scenario": "Fast Track Free-flow",
+      "path": "data/io-vnbd/splits\\val\\Vfa01_sumaro_format.csv",
+      "rows": 11486,
+      "duration_s": 1148.5,
+      "outage_start_s": null,
+      "outage_duration_s": null
+    }
+  ],
+  "test_a_s1": {
+    "session_id": "S1",
+    "driver": "Driver A",
+    "scenario": "Urban / Suburban Mixed Drive",
+    "path": "data/io-vnbd/processed/S1_sumaro_format.csv",
+    "rows": 51746,
+    "duration_s": 5174.5,
+    "outage_start_s": 2000.0,
+    "outage_duration_s": 60.0,
+    "role": "Dedicated S1 Controlled Reproducibility Benchmark"
+  },
+  "test_b_vw01": {
+    "session_id": "Vw1",
+    "driver": "Driver E",
+    "scenario": "Highway Waypoint Cruising",
+    "path": "data/io-vnbd/splits\\test_b\\Vw1_sumaro_format.csv",
+    "rows": 20475,
+    "duration_s": 2047.4,
+    "outage_start_s": 800.0,
+    "outage_duration_s": 60.0
+  }
+}

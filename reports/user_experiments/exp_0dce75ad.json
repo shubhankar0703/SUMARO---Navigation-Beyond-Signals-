@@ -1,0 +1,37 @@
+{
+  "task_id": "0dce75ad",
+  "dataset_path": "C:\\Users\\shubh\\OneDrive\\Documents\\Projects\\SUMARO\\data\\io-vnbd\\processed\\S1_sumaro_format.csv",
+  "blackout": {
+    "enabled": true,
+    "start_time": 20.0,
+    "end_time": 26.0,
+    "label": "Benchmark Outage"
+  },
+  "n_particles": 10,
+  "metrics": {
+    "EKF": {
+      "outage_max_error_m": 135.6113363624036,
+      "outage_rmse_m": 66.45836851868442,
+      "outage_mae_m": 53.2598267404512,
+      "overall_rmse_m": 26.024823243279098,
+      "overall_mae_m": 15.990582572734036,
+      "max_error_m": 135.6113363624036,
+      "final_error_m": 8.213527833966195,
+      "runtime_s": 0.05059189989697188,
+      "throughput_hz": 9883.005007090609,
+      "ml_latency_us": 0.0
+    },
+    "RBPF": {
+      "outage_max_error_m": 132.729219382899,
+      "outage_rmse_m": 64.17909441550297,
+      "outage_mae_m": 49.9531946716349,
+      "overall_rmse_m": 25.091033442287184,
+      "overall_mae_m": 14.910453346794887,
+      "max_error_m": 132.729219382899,
+      "final_error_m": 9.518580673993231,
+      "runtime_s": 0.26082759990822524,
+      "throughput_hz": 1916.975044726593,
+      "ml_latency_us": 0.0
+    }
+  }
+}
