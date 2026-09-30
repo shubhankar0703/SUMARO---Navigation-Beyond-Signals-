@@ -326,7 +326,15 @@
     if (!t) return;
 
     // 1. Speed & Heading HUD
-    const speedKmh = t.est_speed * 3.6;
+    // Priority: Genuine physical speed in km/h from dataset / odometry
+    let speedKmh = 0;
+    if (t.speed_kmh !== undefined && t.speed_kmh !== null) {
+      speedKmh = t.speed_kmh;
+    } else if (t.true_speed !== undefined && t.true_speed !== null) {
+      speedKmh = t.true_speed * 3.6;
+    } else if (t.est_speed !== undefined && t.est_speed !== null) {
+      speedKmh = t.est_speed * 3.6;
+    }
     updateSpeedHUD(speedKmh);
     updateHeadingHUD(t.est_heading_deg);
 

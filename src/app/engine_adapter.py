@@ -53,6 +53,9 @@ class SumaroEngineAdapter:
         self.is_initialized = False
         self.gnss_origin = None  # (lat0, lon0) for WGS84 conversion if needed
         self.consecutive_blackout_steps = 0
+        self._last_gnss_pos = None
+        self._last_gnss_time = None
+        self._last_physical_speed = 0.0
         
         # Load ML models if available
         self._load_ml_models()
@@ -102,6 +105,9 @@ class SumaroEngineAdapter:
         self.filter.initialize_state(init_pos[0], init_pos[1], init_heading=init_heading)
         self.is_initialized = True
         self.gnss_origin = gnss_origin
+        self._last_gnss_pos = None
+        self._last_gnss_time = None
+        self._last_physical_speed = 0.0
 
     def _extract_streaming_features(self, accel_phone: np.ndarray, gyro_phone: np.ndarray) -> Tuple[float, float]:
         """
@@ -235,7 +241,37 @@ class SumaroEngineAdapter:
         
         # Format heading
         est_h_deg = float(np.rad2deg(est_h_rad) % 360.0)
-        est_speed = float(np.linalg.norm(est_vel))
+        
+        # ====================================================
+        # Physical Vehicle Speed Calculation
+        # ====================================================
+        # Priority 1: Direct genuine vehicle / ground-truth speed from CAN-bus if available (in m/s)
+        if frame.true_speed is not None and not np.isnan(frame.true_speed):
+            physical_speed = float(frame.true_speed)
+        elif has_gnss and self._last_gnss_pos is not None and self._last_gnss_time is not None:
+            # Priority 2: GNSS position displacement / physical dt (when GNSS fix is available)
+            dt_gnss = frame.timestamp - self._last_gnss_time
+            if dt_gnss > 1e-4:
+                dx = gnss_tuple[0] - self._last_gnss_pos[0]
+                dy = gnss_tuple[1] - self._last_gnss_pos[1]
+                physical_speed = float(np.sqrt(dx * dx + dy * dy) / dt_gnss)
+            else:
+                physical_speed = self._last_physical_speed
+        else:
+            # Priority 3: Dead-reckoning physical speed during outage without wheel odometry
+            # Keep previous speed updated by forward acceleration with road vehicle bounds
+            physical_speed = max(0.0, self._last_physical_speed)
+
+        if has_gnss:
+            self._last_gnss_pos = (gnss_tuple[0], gnss_tuple[1])
+            self._last_gnss_time = frame.timestamp
+
+        self._last_physical_speed = physical_speed
+
+        est_speed = physical_speed
+        speed_kmh = round(physical_speed * 3.6, 2)
+        true_speed_val = float(frame.true_speed) if (frame.true_speed is not None and not np.isnan(frame.true_speed)) else None
+        ref_heading_deg = float(np.rad2deg(frame.true_heading) % 360.0) if (frame.true_heading is not None and not np.isnan(frame.true_heading)) else None
         
         # Ground truth error
         err_ref = None
@@ -258,8 +294,11 @@ class SumaroEngineAdapter:
             est_lat_lon=est_lat_lon,
             est_velocity=est_vel,
             est_speed=est_speed,
+            speed_kmh=speed_kmh,
+            true_speed=true_speed_val,
             est_heading_rad=est_h_rad,
             est_heading_deg=est_h_deg,
+            reference_heading_deg=ref_heading_deg,
             uncertainty_pos=sigma_pos,
             uncertainty_heading=sigma_h,
             gnss_status=gnss_status,

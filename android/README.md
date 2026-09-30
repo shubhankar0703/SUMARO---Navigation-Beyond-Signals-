@@ -16,12 +16,31 @@ The system comprises:
 To bring the Scikit-learn Gradient Boosting models to Android, you must first convert them to ONNX. 
 We provide a utility script `scripts/export_model_onnx.py` to convert `.joblib` models to `.onnx`.
 
-## How to Build
+## APK Installation & Build
 
-1. Open this `android` folder in Android Studio.
-2. The project uses standard Gradle build configuration.
-3. Ensure Android SDK for Target 34 is installed.
-4. Hit "Run" on a connected Android device or Emulator (requires location/sensor support).
+### Pre-Built APK
+The ready-to-install Android APK is generated at:
+- **`sumaro-debug.apk`** (Project root)
+- **`dist/sumaro-navigation-debug.apk`**
+
+### Direct Installation (via ADB)
+Connect your Android device with USB Debugging enabled:
+```bash
+adb install -r sumaro-debug.apk
+```
+Or transfer the `.apk` file directly to your Android device (via WhatsApp, Google Drive, or USB) and tap to install (enable "Install unknown apps" if prompted).
+
+### How to Rebuild
+Run the automated build script:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build_apk.ps1
+```
+Or build with Gradle:
+```bash
+cd android
+.\gradlew.bat assembleDebug
+```
+Ensure Java 17 LTS and Android SDK (API 34) are installed.
 
 ## Limitations
 

@@ -202,6 +202,40 @@ class TestSumaroApplication(unittest.TestCase):
         self.assertEqual(d_highway["demo_type"], "highway")
         self.assertEqual(d_highway["blackout_window_s"], [800.0, 860.0])
 
+    def test_13_speed_pipeline_and_limits(self):
+        """
+        Verifies that speed displayed during replay matches genuine physical vehicle speed,
+        and cannot explode to impossible values like 243 km/h or 566 km/h during GNSS outage.
+        """
+        # Load S1 dataset and seek to outage window [2000s, 2060s]
+        self.client.post("/api/dataset/load", json={"dataset_id": "S1"})
+        
+        # Test key timestamps: 1990s (pre-outage), 2008s (8s into outage), 2027s (27s into outage)
+        for target_sec in [1990.0, 2008.0, 2027.0, 2045.0, 2060.0]:
+            target_idx = int(target_sec * 10)
+            self.client.post("/api/replay/seek", json={"target_index": target_idx})
+            
+            st = self.client.get("/api/replay/state").json()
+            t = st["latest_telemetry"]
+            self.assertIsNotNone(t, f"Telemetry should not be None at t={target_sec}s")
+            
+            # Physical vehicle speed in S1 is urban driving (~20 to ~65 km/h)
+            spd_kmh = t.get("speed_kmh", 0.0)
+            est_spd = t.get("est_speed", 0.0)
+            true_spd = t.get("true_speed", 0.0)
+            
+            # Speed must be physically plausible for urban driving: strictly < 90 km/h and > 0 km/h
+            self.assertLess(spd_kmh, 90.0, f"Speed {spd_kmh} km/h at t={target_sec}s exceeds physical road limit (was {spd_kmh})")
+            self.assertGreaterEqual(spd_kmh, 0.0, f"Speed cannot be negative")
+            self.assertAlmostEqual(spd_kmh, est_spd * 3.6, places=1, msg="Unit conversion m/s -> km/h mismatch")
+            if true_spd is not None:
+                self.assertAlmostEqual(spd_kmh, true_spd * 3.6, places=1, msg="Displayed speed should match true_speed")
+            
+            # Verify demo summary endpoint reports the same physical speed
+            sum_res = self.client.get("/api/demo/summary").json()
+            self.assertLess(sum_res["current_speed_kmh"], 90.0)
+            self.assertGreaterEqual(sum_res["current_speed_kmh"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,9 +37,12 @@ class NavigationOutputFrame(BaseModel):
     est_pos_enu: Tuple[float, float]
     est_lat_lon: Optional[Tuple[float, float]] = None
     est_velocity: Tuple[float, float]
-    est_speed: float
+    est_speed: float  # Physical vehicle speed in m/s
+    speed_kmh: float = 0.0  # Physical vehicle speed in km/h
+    true_speed: Optional[float] = None  # Ground truth vehicle speed in m/s (if available)
     est_heading_rad: float
     est_heading_deg: float
+    reference_heading_deg: Optional[float] = None  # Ground truth vehicle heading in deg
     uncertainty_pos: float
     uncertainty_heading: float
     gnss_status: str  # "AVAILABLE", "BLACKOUT", "RECOVERING"

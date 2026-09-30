@@ -302,12 +302,22 @@ def get_demo_summary():
     st = replay_service.get_state()
     t = st.get("latest_telemetry")
     bo = st.get("blackout_config", {})
+    
+    spd_kmh = 0.0
+    if t:
+        if t.get("speed_kmh") is not None and t.get("speed_kmh") > 0:
+            spd_kmh = round(float(t.get("speed_kmh")), 1)
+        elif t.get("true_speed") is not None:
+            spd_kmh = round(float(t.get("true_speed")) * 3.6, 1)
+        elif t.get("est_speed") is not None:
+            spd_kmh = round(float(t.get("est_speed")) * 3.6, 1)
+
     return {
         "dataset_name": st.get("dataset_name"),
         "is_playing": st.get("is_playing"),
         "current_time_s": st.get("current_time_s"),
         "outage_duration_s": max(0.0, bo.get("end_time", 0.0) - bo.get("start_time", 0.0)),
-        "current_speed_kmh": round(t.get("est_speed", 0.0) * 3.6, 1) if t else 0.0,
+        "current_speed_kmh": spd_kmh,
         "current_error_m": round(t.get("error_to_reference", 0.0), 2) if (t and t.get("error_to_reference") is not None) else None,
         "gnss_status": t.get("gnss_status") if t else "AVAILABLE",
         "navigation_maintained": True,
